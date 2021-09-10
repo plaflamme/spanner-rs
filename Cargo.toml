@@ -1,0 +1,10 @@
+[package]
+name = "spanner-rs"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+prost = "0.8"
+
+[build-dependencies]
+prost-build = "0.8"
