@@ -6,8 +6,12 @@ edition = "2018"
 [dependencies]
 prost = "0.8"
 prost-types = "0.8"
+tokio = { version = "1.0", features = ["rt-multi-thread", "macros", "net"] }
 tonic = "0.5"
 tonic-types = "0.3"
 
 [build-dependencies]
 tonic-build = "0.5"
+
+[lib]
+doctest = false # TODO: move generated code to another crate to only disable this in that crate.
