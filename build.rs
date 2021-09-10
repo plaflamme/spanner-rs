@@ -1,6 +1,6 @@
 use std::io::Result;
 fn main() -> Result<()> {
-    prost_build::Config::new().compile_protos(
+    tonic_build::configure().build_server(false).compile(
         &[
             "commit_response.proto",
             "keys.proto",
@@ -14,7 +14,7 @@ fn main() -> Result<()> {
         .iter()
         .map(|&filename| format!("proto/googleapis/google/spanner/v1/{}", filename))
         .collect::<Vec<String>>(),
-        &["proto/googleapis"],
+        &["proto/googleapis".to_string()],
     )?;
     Ok(())
 }

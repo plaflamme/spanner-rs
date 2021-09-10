@@ -1,10 +1,10 @@
 pub mod google {
     pub mod rpc {
-        include!(concat!(env!("OUT_DIR"), "/google.rpc.rs"));
+        tonic::include_proto!("google.rpc");
     }
     pub mod spanner {
         pub mod v1 {
-            include!(concat!(env!("OUT_DIR"), "/google.spanner.v1.rs"));
+            tonic::include_proto!("google.spanner.v1");
         }
     }
 }
