@@ -11,6 +11,7 @@ tonic = "0.5"
 tonic-types = "0.3"
 
 [dev-dependencies]
+async-trait = "0.1"
 testcontainers = "0.12"
 reqwest = "0.11"
 
