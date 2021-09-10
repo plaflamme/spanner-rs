@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use spanner_rs::proto::google::spanner::v1::{spanner_client::SpannerClient, CreateSessionRequest};
+use spanner_rs::{DatabaseId, InstanceId, SpannerResource};
 use std::collections::HashMap;
 use testcontainers::{clients, Container, Docker, Image, WaitForMessage};
 use tonic::{transport::Channel, Request};
@@ -61,20 +62,25 @@ trait SpannerContainer {
             .unwrap();
     }
 
-    async fn create_instance(&self, name: &str) {
+    async fn with_instance(&self, instance: &InstanceId) -> &Self {
         self.post(
-            "/v1/projects/test-project/instances".to_string(),
-            format!(r#"{{"instanceId": "{}"}}"#, name),
+            instance.url_path(),
+            format!(r#"{{"instanceId": "{}"}}"#, instance.name()),
         )
-        .await
+        .await;
+        self
     }
 
-    async fn create_database(&self, instance: &str, database: &str) {
+    async fn with_database(&self, database: &DatabaseId) -> &Self {
         self.post(
-            format!("/v1/projects/test-project/instances/{}/databases", instance),
-            format!(r#"{{"createStatement":"CREATE DATABASE `{}`"}}"#, database),
+            database.url_path(),
+            format!(
+                r#"{{"createStatement":"CREATE DATABASE `{}`"}}"#,
+                database.name()
+            ),
         )
-        .await
+        .await;
+        self
     }
 }
 
@@ -89,9 +95,13 @@ async fn test_create_session() -> Result<(), Box<dyn std::error::Error>> {
     let docker = clients::Cli::default();
     let container = docker.run(SpannerEmulator);
 
-    container.create_instance("test-instance").await;
+    let instance_id = InstanceId::new("test-project", "test-instance");
+    let database_id = DatabaseId::new(&instance_id, "test-database");
+
     container
-        .create_database("test-instance", "test-database")
+        .with_instance(&instance_id)
+        .await
+        .with_database(&database_id)
         .await;
 
     let grpc_port = container.get_host_port(9010).unwrap();
@@ -104,8 +114,7 @@ async fn test_create_session() -> Result<(), Box<dyn std::error::Error>> {
 
     let response = service
         .create_session(Request::new(CreateSessionRequest {
-            database: "projects/test-project/instances/test-instance/databases/test-database"
-                .to_string(),
+            database: database_id.id(),
             session: None,
         }))
         .await?;
