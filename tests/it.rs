@@ -52,12 +52,14 @@ trait SpannerContainer {
     fn http_port(&self) -> u16;
 
     async fn post(&self, path: String, body: String) {
-        reqwest::Client::new()
+        let response = reqwest::Client::new()
             .post(format!("http://localhost:{}/v1/{}", self.http_port(), path))
             .body(body)
             .send()
             .await
             .unwrap();
+
+        assert!(response.status().is_success(), "{:?}", response);
     }
 
     async fn with_instance(&self, instance: &InstanceId) -> &Self {
@@ -69,12 +71,19 @@ trait SpannerContainer {
         self
     }
 
-    async fn with_database(&self, database: &DatabaseId) -> &Self {
+    async fn with_database(&self, database: &DatabaseId, extra_statements: Vec<&str>) -> &Self {
+        let json_statements = extra_statements
+            .into_iter()
+            .map(|s| format!(r#""{}""#, s))
+            .collect::<Vec<String>>()
+            .join(",");
+
         self.post(
             database.resources_id(),
             format!(
-                r#"{{"createStatement":"CREATE DATABASE `{}`"}}"#,
-                database.name()
+                r#"{{"createStatement":"CREATE DATABASE `{}`", "extraStatements":[{}]}}"#,
+                database.name(),
+                json_statements,
             ),
         )
         .await;
@@ -99,7 +108,10 @@ async fn test_create_session() -> Result<(), spanner_rs::Error> {
     container
         .with_instance(&instance_id)
         .await
-        .with_database(&database_id)
+        .with_database(
+            &database_id,
+            vec!["CREATE TABLE my_table(a INT64, b INT64) PRIMARY KEY(a)"],
+        )
         .await;
 
     let mut client = Client::config()
@@ -124,7 +136,7 @@ async fn test_create_session() -> Result<(), spanner_rs::Error> {
         )
         .await;
 
-    assert!(read.is_err());
+    assert!(read.is_ok());
 
     Ok(())
 }
