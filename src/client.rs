@@ -1,10 +1,10 @@
-use tonic::transport::Channel;
-use tonic::Request;
-
+use crate::keys::KeySet;
 use crate::proto::google::spanner::v1::{
-    spanner_client::SpannerClient, CreateSessionRequest, Session,
+    spanner_client::SpannerClient, CreateSessionRequest, ReadRequest, Session,
 };
 use crate::{Config, DatabaseId, Error, SpannerResource};
+use tonic::transport::Channel;
+use tonic::Request;
 
 pub struct Client {
     client: SpannerClient<Channel>,
@@ -29,6 +29,32 @@ impl Client {
             client: SpannerClient::new(channel),
             database: config.database.unwrap(),
         })
+    }
+
+    pub async fn read(
+        &mut self,
+        table: &str,
+        key_set: KeySet,
+        columns: Vec<String>,
+    ) -> Result<(), Error> {
+        let session = self.create_session().await?;
+        let _result_set = self
+            .client
+            .read(Request::new(ReadRequest {
+                session: session.name,
+                transaction: None,
+                table: table.to_string(),
+                index: "".to_string(),
+                columns: columns,
+                key_set: Some(key_set.into()),
+                limit: 0,
+                resume_token: vec![],
+                partition_token: vec![],
+                request_options: None,
+            }))
+            .await?
+            .into_inner();
+        Ok(())
     }
 
     pub async fn create_session(&mut self) -> Result<Session, Error> {

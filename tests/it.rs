@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use spanner_rs::{Client, DatabaseId, InstanceId, SpannerResource};
+use spanner_rs::{Client, DatabaseId, InstanceId, Key, KeySet, SpannerResource, Value};
 use std::collections::HashMap;
 use testcontainers::{clients, Container, Docker, Image, WaitForMessage};
 
@@ -115,6 +115,16 @@ async fn test_create_session() -> Result<(), spanner_rs::Error> {
         session.name,
         "projects/test-project/instances/test-instance/databases/test-database/sessions/0"
     );
+
+    let read = client
+        .read(
+            "my_table",
+            KeySet::from(vec![Key::from(Value::Int64(32))]),
+            vec!["a".to_string(), "b".to_string()],
+        )
+        .await;
+
+    assert!(read.is_err());
 
     Ok(())
 }
