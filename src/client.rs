@@ -8,6 +8,7 @@ use crate::{Config, DatabaseId, Error, SpannerResource};
 
 pub struct Client {
     client: SpannerClient<Channel>,
+    database: DatabaseId,
 }
 
 impl Client {
@@ -15,10 +16,10 @@ impl Client {
         Config::default()
     }
 
-    pub async fn connect(config: &Config) -> Result<Self, Error> {
+    pub async fn connect(config: Config) -> Result<Self, Error> {
         let channel = Channel::from_shared(format!(
             "http://{}:{}",
-            config.endpoint.as_ref().unwrap(),
+            config.endpoint.unwrap(),
             config.port.unwrap()
         ))
         .unwrap()
@@ -26,14 +27,15 @@ impl Client {
         .await?;
         Ok(Self {
             client: SpannerClient::new(channel),
+            database: config.database.unwrap(),
         })
     }
 
-    pub async fn create_session(&mut self, database_id: DatabaseId) -> Result<Session, Error> {
+    pub async fn create_session(&mut self) -> Result<Session, Error> {
         let response = self
             .client
             .create_session(Request::new(CreateSessionRequest {
-                database: database_id.id(),
+                database: self.database.id(),
                 session: None,
             }))
             .await?;

@@ -105,10 +105,11 @@ async fn test_create_session() -> Result<(), spanner_rs::Error> {
     let mut client = Client::config()
         .endpoint("localhost")
         .port(container.get_host_port(9010).unwrap())
+        .database(database_id)
         .connect()
         .await?;
 
-    let session = client.create_session(database_id).await?;
+    let session = client.create_session().await?;
 
     assert_eq!(
         session.name,
