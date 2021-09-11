@@ -45,7 +45,7 @@ impl Client {
                 transaction: None,
                 table: table.to_string(),
                 index: "".to_string(),
-                columns: columns,
+                columns,
                 key_set: Some(key_set.into()),
                 limit: 0,
                 resume_token: vec![],

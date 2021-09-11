@@ -24,6 +24,7 @@ impl From<i64> for Value {
     }
 }
 
+#[allow(clippy::from_over_into)]
 impl Into<SpannerValue> for Value {
     fn into(self) -> SpannerValue {
         let kind = match self {
@@ -58,6 +59,7 @@ impl core::iter::FromIterator<Value> for ListValue {
     }
 }
 
+#[allow(clippy::from_over_into)]
 impl Into<ListValue> for Key {
     fn into(self) -> ListValue {
         self.0.into_iter().collect()
@@ -73,6 +75,7 @@ impl From<Vec<Key>> for KeySet {
     }
 }
 
+#[allow(clippy::from_over_into)]
 impl Into<SpannerKeySet> for KeySet {
     fn into(self) -> SpannerKeySet {
         SpannerKeySet {
