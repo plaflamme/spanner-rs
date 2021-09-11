@@ -6,6 +6,5 @@ pub use crate::resource::*;
 mod client;
 mod config;
 mod error;
-// TODO: drop pub
-pub mod proto;
+mod proto;
 mod resource;
