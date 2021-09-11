@@ -115,8 +115,10 @@ async fn test_create_session() -> Result<(), spanner_rs::Error> {
         .await;
 
     let mut client = Client::config()
-        .endpoint("localhost")
-        .port(container.get_host_port(9010).unwrap())
+        .endpoint(format!(
+            "http://localhost:{}",
+            container.get_host_port(9010).unwrap()
+        ))
         .database(database_id)
         .connect()
         .await?;

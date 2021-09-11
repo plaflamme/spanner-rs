@@ -17,14 +17,15 @@ impl Client {
     }
 
     pub async fn connect(config: Config) -> Result<Self, Error> {
-        let channel = Channel::from_shared(format!(
-            "http://{}:{}",
-            config.endpoint.unwrap(),
-            config.port.unwrap()
-        ))
-        .unwrap()
+        let channel = Channel::from_shared(
+            config
+                .endpoint
+                .ok_or_else(|| Error::Config("unspecified endpoint".to_string()))?,
+        )
+        .map_err(|invalid_uri| Error::Config(format!("invalid endpoint: {}", invalid_uri)))?
         .connect()
         .await?;
+
         Ok(Self {
             client: SpannerClient::new(channel),
             database: config.database.unwrap(),
