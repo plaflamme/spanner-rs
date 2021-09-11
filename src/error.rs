@@ -1,17 +1,8 @@
-#[derive(Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum Error {
-    TransportError(tonic::transport::Error),
-    Status(tonic::Status),
-}
+    #[error("transport error: {0}")]
+    TransportError(#[from] tonic::transport::Error),
 
-impl From<tonic::transport::Error> for Error {
-    fn from(err: tonic::transport::Error) -> Self {
-        Error::TransportError(err)
-    }
-}
-
-impl From<tonic::Status> for Error {
-    fn from(err: tonic::Status) -> Self {
-        Error::Status(err)
-    }
+    #[error("unexpected gRPC status: {0}")]
+    Status(#[from] tonic::Status),
 }
