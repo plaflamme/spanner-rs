@@ -1,9 +1,7 @@
 use async_trait::async_trait;
-use spanner_rs::proto::google::spanner::v1::{spanner_client::SpannerClient, CreateSessionRequest};
-use spanner_rs::{DatabaseId, InstanceId, SpannerResource};
+use spanner_rs::{Client, DatabaseId, InstanceId, SpannerResource};
 use std::collections::HashMap;
 use testcontainers::{clients, Container, Docker, Image, WaitForMessage};
-use tonic::{transport::Channel, Request};
 
 #[derive(Default, Debug, Clone)]
 struct SpannerEmulator;
@@ -55,7 +53,7 @@ trait SpannerContainer {
 
     async fn post(&self, path: String, body: String) {
         reqwest::Client::new()
-            .post(format!("http://localhost:{}{}", self.http_port(), path))
+            .post(format!("http://localhost:{}/v1/{}", self.http_port(), path))
             .body(body)
             .send()
             .await
@@ -64,7 +62,7 @@ trait SpannerContainer {
 
     async fn with_instance(&self, instance: &InstanceId) -> &Self {
         self.post(
-            instance.url_path(),
+            instance.resources_id(),
             format!(r#"{{"instanceId": "{}"}}"#, instance.name()),
         )
         .await;
@@ -73,7 +71,7 @@ trait SpannerContainer {
 
     async fn with_database(&self, database: &DatabaseId) -> &Self {
         self.post(
-            database.url_path(),
+            database.resources_id(),
             format!(
                 r#"{{"createStatement":"CREATE DATABASE `{}`"}}"#,
                 database.name()
@@ -91,7 +89,7 @@ impl<'a, D: Docker> SpannerContainer for Container<'a, D, SpannerEmulator> {
 }
 
 #[tokio::test]
-async fn test_create_session() -> Result<(), Box<dyn std::error::Error>> {
+async fn test_create_session() -> Result<(), spanner_rs::Error> {
     let docker = clients::Cli::default();
     let container = docker.run(SpannerEmulator);
 
@@ -104,22 +102,18 @@ async fn test_create_session() -> Result<(), Box<dyn std::error::Error>> {
         .with_database(&database_id)
         .await;
 
-    let grpc_port = container.get_host_port(9010).unwrap();
-    let channel = Channel::from_shared(format!("http://localhost:{}", grpc_port))
-        .unwrap()
+    let mut client = Client::config()
+        .endpoint("localhost")
+        .port(container.get_host_port(9010).unwrap())
         .connect()
         .await?;
 
-    let mut service = SpannerClient::new(channel);
+    let session = client.create_session(database_id).await?;
 
-    let response = service
-        .create_session(Request::new(CreateSessionRequest {
-            database: database_id.id(),
-            session: None,
-        }))
-        .await?;
-
-    assert_eq!(response.metadata().get("grpc-status").unwrap(), "0");
+    assert_eq!(
+        session.name,
+        "projects/test-project/instances/test-instance/databases/test-database/sessions/0"
+    );
 
     Ok(())
 }
