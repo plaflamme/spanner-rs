@@ -9,6 +9,7 @@ use prost_types::{ListValue, Value as SpannerValue};
 // https://github.com/googleapis/googleapis/blob/master/google/spanner/v1/type.proto
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
+    Null(Type),
     Bool(bool),
     Int64(i64),
     Float64(f64),
@@ -22,6 +23,46 @@ pub enum Value {
     Struct(Vec<(Option<String>, Value)>),
 }
 
+impl Value {
+    pub fn try_from(tpe: &Type, value: SpannerValue) -> Result<Self, crate::Error> {
+        if let Some(kind) = value.kind {
+            match (tpe, kind) {
+                (Type::Bool, Kind::BoolValue(b)) => Ok(Value::Bool(b)),
+                (Type::Int64, Kind::StringValue(s)) => s
+                    .parse::<i64>()
+                    .map(Value::Int64)
+                    .map_err(|_| crate::Error::Codec(format!("{} is not a valid Int64", s))),
+                (Type::Float64, Kind::NumberValue(n)) => Ok(Value::Float64(n)),
+                (Type::String, Kind::StringValue(s)) => Ok(Value::String(s)),
+                (Type::Array(inner), Kind::ListValue(list_value)) => list_value
+                    .values
+                    .into_iter()
+                    .map(|v| Value::try_from(inner, v))
+                    .collect::<Result<Vec<Value>, crate::Error>>()
+                    .map(Value::Array),
+                (Type::Struct(fields), Kind::StructValue(strct)) => strct
+                    .fields
+                    .into_iter()
+                    .map(|(name, v)| {
+                        fields
+                            .get(&name)
+                            .ok_or_else(|| crate::Error::Codec(format!("unknown field {}", name)))
+                            .and_then(|tpe| Value::try_from(tpe, v))
+                            .map(|value| (Some(name), value))
+                    })
+                    .collect::<Result<Vec<(Option<String>, Value)>, crate::Error>>()
+                    .map(Value::Struct),
+                _ => Err(crate::Error::Codec(format!(
+                    "invalid value kind type {:?}",
+                    tpe
+                ))),
+            }
+        } else {
+            Ok(Value::Null(tpe.clone()))
+        }
+    }
+}
+
 impl From<i64> for Value {
     fn from(v: i64) -> Self {
         Value::Int64(v)
@@ -31,6 +72,7 @@ impl From<i64> for Value {
 impl From<Value> for SpannerValue {
     fn from(value: Value) -> Self {
         let kind = match value {
+            Value::Null(tpe) => Kind::NullValue(tpe.code() as i32),
             Value::Bool(b) => Kind::BoolValue(b),
             Value::Int64(i) => Kind::StringValue(i.to_string()),
             Value::Float64(f) => Kind::NumberValue(f),
@@ -49,7 +91,7 @@ impl From<Value> for SpannerValue {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Type {
     Bool,
     Int64,
@@ -75,6 +117,21 @@ impl Type {
                 .map(|(name, tpe)| (name.to_string(), tpe))
                 .collect(),
         )
+    }
+    fn code(&self) -> TypeCode {
+        match self {
+            Type::Bool => TypeCode::Bool,
+            Type::Int64 => TypeCode::Int64,
+            Type::Float64 => TypeCode::Float64,
+            Type::String => TypeCode::String,
+            Type::Bytes => TypeCode::Bytes,
+            Type::Json => TypeCode::Json,
+            Type::Numeric => TypeCode::Numeric,
+            Type::Timestamp => TypeCode::Timestamp,
+            Type::Date => TypeCode::Date,
+            Type::Array(_) => TypeCode::Array,
+            Type::Struct(_) => TypeCode::Struct,
+        }
     }
 }
 
