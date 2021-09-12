@@ -1,5 +1,3 @@
-#![feature(assert_matches)]
-
 pub use crate::client::Client;
 pub use crate::config::Config;
 pub use crate::error::Error;

@@ -136,7 +136,6 @@ mod test {
 
     use crate::proto::google::spanner::v1::struct_type::Field;
     use crate::proto::google::spanner::v1::StructType;
-    use crate::Error;
 
     use super::*;
 
@@ -219,7 +218,7 @@ mod test {
             struct_type: None,
         };
 
-        assert_matches!(Type::try_from(invalid), Err(Error::Codec(_)),);
+        assert!(Type::try_from(invalid).is_err());
     }
 
     #[test]
@@ -254,5 +253,13 @@ mod test {
                 ("struct", Type::strct(vec![("int64", Type::Int64)]))
             ]),
         );
+
+        let invalid = SpannerType {
+            code: TypeCode::Struct as i32,
+            array_element_type: None,
+            struct_type: None,
+        };
+
+        assert!(Type::try_from(invalid).is_err());
     }
 }
