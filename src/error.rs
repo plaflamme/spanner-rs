@@ -2,6 +2,8 @@
 pub enum Error {
     #[error("configuration error: {0}")]
     Config(String),
+    #[error("codec error: {0}")]
+    Codec(String),
 
     #[error("transport error: {0}")]
     TransportError(#[from] tonic::transport::Error),
