@@ -3,6 +3,7 @@ pub use crate::config::Config;
 pub use crate::error::Error;
 pub use crate::keys::*;
 pub use crate::resource::*;
+pub use crate::types::*;
 pub use crate::value::*;
 
 mod client;
@@ -11,4 +12,5 @@ mod error;
 mod keys;
 mod proto;
 mod resource;
+mod types;
 mod value;
