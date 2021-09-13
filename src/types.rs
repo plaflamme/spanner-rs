@@ -1,7 +1,31 @@
+use crate::proto::google::spanner::v1::StructType as SpannerStructType;
 use crate::proto::google::spanner::v1::Type as SpannerType;
 use crate::proto::google::spanner::v1::TypeCode;
 
 use std::convert::TryFrom;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct StructType(pub Vec<(Option<String>, Type)>);
+
+impl TryFrom<SpannerStructType> for StructType {
+    type Error = crate::Error;
+
+    fn try_from(value: SpannerStructType) -> Result<Self, Self::Error> {
+        value
+            .fields
+            .iter()
+            .map(|field| {
+                field
+                    .r#type
+                    .as_ref()
+                    .ok_or_else(|| Self::Error::Codec("missing type".to_string()))
+                    .and_then(Type::try_from)
+                    .map(|tpe| (Some(field.name.clone()), tpe))
+            })
+            .collect::<Result<Vec<(Option<String>, Type)>, Self::Error>>()
+            .map(StructType)
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Type {
@@ -15,7 +39,7 @@ pub enum Type {
     Timestamp,
     Date,
     Array(Box<Type>),
-    Struct(Vec<(Option<String>, Type)>),
+    Struct(StructType),
 }
 
 impl Type {
@@ -24,12 +48,12 @@ impl Type {
     }
 
     pub fn strct(fields: Vec<(&str, Type)>) -> Self {
-        Type::Struct(
+        Type::Struct(StructType(
             fields
                 .into_iter()
                 .map(|(name, tpe)| (Some(name.to_string()), tpe))
                 .collect(),
-        )
+        ))
     }
 
     pub(crate) fn code(&self) -> TypeCode {
@@ -72,21 +96,9 @@ impl TryFrom<&SpannerType> for Type {
 
             Some(TypeCode::Struct) => value
                 .struct_type
-                .as_ref()
+                .clone()
                 .ok_or_else(|| Self::Error::Codec("missing struct type definition".to_string()))
-                .and_then(|tpe| {
-                    tpe.fields
-                        .iter()
-                        .map(|field| {
-                            field
-                                .r#type
-                                .as_ref()
-                                .ok_or_else(|| Self::Error::Codec("missing type".to_string()))
-                                .and_then(Type::try_from)
-                                .map(|tpe| (Some(field.name.clone()), tpe))
-                        })
-                        .collect::<Result<Vec<(Option<String>, Type)>, Self::Error>>()
-                })
+                .and_then(StructType::try_from)
                 .map(Type::Struct),
             Some(TypeCode::Unspecified) => Err(Self::Error::Codec("unspecified type".to_string())),
             None => Err(Self::Error::Codec("unknown type code".to_string())),

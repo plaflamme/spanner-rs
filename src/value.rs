@@ -1,7 +1,31 @@
-use crate::Type;
+use crate::{StructType, Type};
 
 use prost_types::value::Kind;
 use prost_types::{ListValue, Value as SpannerValue};
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct StructValue(pub Vec<(Option<String>, Value)>);
+
+impl StructValue {
+    pub fn try_from(tpe: &StructType, list_value: ListValue) -> Result<Self, crate::Error> {
+        if tpe.0.len() != list_value.values.len() {
+            Err(crate::Error::Codec(format!(
+                "unmatched number of fields: expected {}, got {}",
+                tpe.0.len(),
+                list_value.values.len()
+            )))
+        } else {
+            tpe.0
+                .iter()
+                .zip(list_value.values)
+                .map(|((name, tpe), value)| {
+                    Value::try_from(tpe, value).map(|value| (name.clone(), value))
+                })
+                .collect::<Result<Vec<(Option<String>, Value)>, crate::Error>>()
+                .map(StructValue)
+        }
+    }
+}
 
 // https://github.com/googleapis/googleapis/blob/master/google/spanner/v1/type.proto
 #[derive(Debug, Clone, PartialEq)]
@@ -17,7 +41,7 @@ pub enum Value {
     // Timestamp
     // Date
     Array(Vec<Value>),
-    Struct(Vec<(Option<String>, Value)>), // field names are optional
+    Struct(StructValue),
 }
 
 impl Value {
@@ -37,23 +61,8 @@ impl Value {
                     .map(|v| Value::try_from(inner, v))
                     .collect::<Result<Vec<Value>, crate::Error>>()
                     .map(Value::Array),
-                (Type::Struct(type_fields), Kind::ListValue(list_value)) => {
-                    if type_fields.len() != list_value.values.len() {
-                        Err(crate::Error::Codec(format!(
-                            "unmatched number of fields: expected {}, got {}",
-                            type_fields.len(),
-                            list_value.values.len()
-                        )))
-                    } else {
-                        type_fields
-                            .iter()
-                            .zip(list_value.values)
-                            .map(|((name, tpe), value)| {
-                                Value::try_from(tpe, value).map(|value| (name.clone(), value))
-                            })
-                            .collect::<Result<Vec<(Option<String>, Value)>, crate::Error>>()
-                            .map(Value::Struct)
-                    }
+                (Type::Struct(row_type), Kind::ListValue(list_value)) => {
+                    StructValue::try_from(row_type, list_value).map(Value::Struct)
                 }
                 _ => Err(crate::Error::Codec(format!(
                     "invalid value kind type {:?}",
@@ -83,8 +92,8 @@ impl From<Value> for SpannerValue {
             Value::Array(values) => Kind::ListValue(ListValue {
                 values: values.into_iter().map(|v| v.into()).collect(),
             }),
-            Value::Struct(fields) => Kind::ListValue(ListValue {
-                values: fields.into_iter().map(|(_, value)| value.into()).collect(),
+            Value::Struct(StructValue(values)) => Kind::ListValue(ListValue {
+                values: values.into_iter().map(|(_, value)| value.into()).collect(),
             }),
         };
         Self { kind: Some(kind) }

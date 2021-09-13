@@ -130,15 +130,15 @@ async fn test_create_session() -> Result<(), spanner_rs::Error> {
         "projects/test-project/instances/test-instance/databases/test-database/sessions/0"
     );
 
-    let read = client
+    let result_set = client
         .read(
             "my_table",
             KeySet::from(vec![Key::from(Value::Int64(32))]),
             vec!["a".to_string(), "b".to_string()],
         )
-        .await;
+        .await?;
 
-    assert!(read.is_ok());
+    assert!(result_set.iter().next().is_none());
 
     Ok(())
 }

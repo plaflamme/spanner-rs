@@ -1,7 +1,10 @@
+use std::convert::TryInto;
+
 use crate::keys::KeySet;
 use crate::proto::google::spanner::v1::{
     spanner_client::SpannerClient, CreateSessionRequest, ReadRequest, Session,
 };
+use crate::result_set::ResultSet;
 use crate::{Config, DatabaseId, Error, SpannerResource};
 use tonic::transport::Channel;
 use tonic::Request;
@@ -37,9 +40,9 @@ impl Client {
         table: &str,
         key_set: KeySet,
         columns: Vec<String>,
-    ) -> Result<(), Error> {
+    ) -> Result<ResultSet, Error> {
         let session = self.create_session().await?;
-        let _result_set = self
+        let result_set = self
             .client
             .read(Request::new(ReadRequest {
                 session: session.name,
@@ -55,7 +58,8 @@ impl Client {
             }))
             .await?
             .into_inner();
-        Ok(())
+
+        result_set.try_into()
     }
 
     pub async fn create_session(&mut self) -> Result<Session, Error> {
