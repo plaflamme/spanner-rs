@@ -1,4 +1,4 @@
-use crate::{Client, DatabaseId, Error};
+use crate::{connection::GrpcConnection, Client, DatabaseId, Error};
 
 #[derive(Default, PartialEq, Clone)]
 pub struct Config {
@@ -18,6 +18,7 @@ impl Config {
     }
 
     pub async fn connect(self) -> Result<Client, Error> {
-        Client::connect(self).await
+        let connection = GrpcConnection::connect(self).await?;
+        Ok(Client::connect(connection))
     }
 }

@@ -1,5 +1,6 @@
 pub use crate::client::Client;
 pub use crate::config::Config;
+pub use crate::connection::Connection;
 pub use crate::error::Error;
 pub use crate::keys::*;
 pub use crate::resource::*;
@@ -9,6 +10,7 @@ pub use crate::value::*;
 
 mod client;
 mod config;
+mod connection;
 mod error;
 mod keys;
 mod proto;

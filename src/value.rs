@@ -27,6 +27,12 @@ impl StructValue {
     }
 }
 
+impl Default for StructValue {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
 // https://github.com/googleapis/googleapis/blob/master/google/spanner/v1/type.proto
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {

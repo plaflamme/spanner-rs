@@ -123,13 +123,6 @@ async fn test_create_session() -> Result<(), spanner_rs::Error> {
         .connect()
         .await?;
 
-    let session = client.create_session().await?;
-
-    assert_eq!(
-        session.name,
-        "projects/test-project/instances/test-instance/databases/test-database/sessions/0"
-    );
-
     let result_set = client
         .read(
             "my_table",
@@ -137,6 +130,10 @@ async fn test_create_session() -> Result<(), spanner_rs::Error> {
             vec!["a".to_string(), "b".to_string()],
         )
         .await?;
+
+    assert!(result_set.iter().next().is_none());
+
+    let result_set = client.execute_sql("SELECT * FROM my_table").await?;
 
     assert!(result_set.iter().next().is_none());
 
