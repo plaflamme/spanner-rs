@@ -9,7 +9,7 @@ use crate::{
 use async_trait::async_trait;
 use proto::{
     execute_sql_request::QueryMode, spanner_client::SpannerClient, CommitRequest,
-    CreateSessionRequest, DeleteSessionRequest, ExecuteSqlRequest, ReadRequest,
+    CreateSessionRequest, DeleteSessionRequest, ExecuteSqlRequest, ReadRequest, RollbackRequest,
 };
 use tonic::transport::Channel;
 use tonic::Request;
@@ -19,6 +19,7 @@ pub(crate) trait Connection: Clone {
     async fn create_session(&mut self) -> Result<Session, Error>;
     async fn delete_session(&mut self, session: Session) -> Result<(), Error>;
     async fn commit(&mut self, session: &Session, transaction: Transaction) -> Result<(), Error>;
+    async fn rollback(&mut self, session: &Session, transaction: Transaction) -> Result<(), Error>;
 
     async fn read(
         &mut self,
@@ -92,6 +93,17 @@ impl Connection for GrpcConnection {
                 request_options: None,
             }))
             .await?;
+        Ok(())
+    }
+
+    async fn rollback(&mut self, session: &Session, tx: Transaction) -> Result<(), Error> {
+        self.spanner
+            .rollback(Request::new(RollbackRequest {
+                session: session.name().to_string(),
+                transaction_id: tx.id().clone(),
+            }))
+            .await?;
+
         Ok(())
     }
 

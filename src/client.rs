@@ -2,6 +2,7 @@ use std::future::Future;
 use std::pin::Pin;
 
 use bb8::{Pool, PooledConnection};
+use tonic::Code;
 
 use crate::connection::GrpcConnection;
 use crate::result_set::ResultSet;
@@ -132,13 +133,22 @@ impl TxRunner {
             selector: TransactionSelector::Begin,
         };
         let result = (work)(&mut ctx).await;
-        if result.is_ok() {
-            if let TransactionSelector::Id(tx) = ctx.selector {
-                self.connection.commit(&session, tx).await?;
+
+        match result {
+            Ok(_) => {
+                if let TransactionSelector::Id(tx) = ctx.selector {
+                    self.connection.commit(&session, tx).await?;
+                }
             }
-        } else {
-            todo!("rollback")
-        }
+            Err(Error::Status(status)) if status.code() == Code::Aborted => {
+                todo!("retry aborted transaction")
+            }
+            Err(_) => {
+                if let TransactionSelector::Id(tx) = ctx.selector {
+                    self.connection.rollback(&session, tx).await?;
+                }
+            }
+        };
         result
     }
 }
