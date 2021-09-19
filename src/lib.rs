@@ -5,7 +5,8 @@ pub use crate::error::Error;
 pub use crate::keys::*;
 pub use crate::resource::*;
 pub use crate::result_set::*;
-pub use crate::session::*;
+pub(crate) use crate::session::*;
+pub(crate) use crate::transaction::*;
 pub use crate::types::*;
 pub use crate::value::*;
 
@@ -18,5 +19,6 @@ mod proto;
 mod resource;
 mod result_set;
 mod session;
+mod transaction;
 mod types;
 mod value;
