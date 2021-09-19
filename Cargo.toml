@@ -5,6 +5,7 @@ edition = "2018"
 
 [dependencies]
 async-trait = "0.1"
+bb8 = "0.7"
 prost = "0.8"
 prost-types = "0.8"
 thiserror = "1.0"

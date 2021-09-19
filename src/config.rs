@@ -1,4 +1,6 @@
-use crate::{connection::GrpcConnection, Client, DatabaseId, Error};
+use bb8::Pool;
+
+use crate::{connection::GrpcConnection, Client, DatabaseId, Error, SessionManager};
 
 #[derive(Default, PartialEq, Clone)]
 pub struct Config {
@@ -19,6 +21,9 @@ impl Config {
 
     pub async fn connect(self) -> Result<Client, Error> {
         let connection = GrpcConnection::connect(self).await?;
-        Ok(Client::connect(connection))
+        let mgr = SessionManager::new(connection.clone());
+        let pool = Pool::builder().build(mgr).await?;
+
+        Ok(Client::connect(connection, pool))
     }
 }

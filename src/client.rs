@@ -1,9 +1,12 @@
+use bb8::{Pool, PooledConnection};
+
 use crate::connection::GrpcConnection;
 use crate::result_set::ResultSet;
-use crate::{Config, Connection, Error, Session, TransactionSelector};
+use crate::{session::SessionManager, Config, Connection, Error, TransactionSelector};
 
 pub struct Client {
     connection: GrpcConnection,
+    session_pool: Pool<SessionManager>,
 }
 
 impl Client {
@@ -13,15 +16,18 @@ impl Client {
 }
 
 impl Client {
-    pub(crate) fn connect(connection: GrpcConnection) -> Self {
-        Self { connection }
+    pub(crate) fn connect(connection: GrpcConnection, session_pool: Pool<SessionManager>) -> Self {
+        Self {
+            connection,
+            session_pool,
+        }
     }
 
-    pub async fn single_use(&mut self) -> Result<impl ReadContext, Error> {
-        let session = self.connection.create_session().await?;
+    pub async fn single_use(&'_ mut self) -> Result<impl ReadContext + '_, Error> {
+        let session = self.session_pool.get().await?;
         Ok(SingleUse {
             connection: self.connection.clone(),
-            session,
+            session: Some(session),
         })
     }
 }
@@ -31,19 +37,25 @@ pub trait ReadContext {
     async fn execute_sql(&mut self, statement: &str) -> Result<ResultSet, Error>;
 }
 
-struct SingleUse {
+struct SingleUse<'a> {
     connection: GrpcConnection,
-    session: Session,
+    session: Option<PooledConnection<'a, SessionManager>>,
 }
 
 #[async_trait::async_trait]
-impl ReadContext for SingleUse {
+impl<'a> ReadContext for SingleUse<'a> {
     async fn execute_sql(&mut self, statement: &str) -> Result<ResultSet, Error> {
-        let result = self
-            .connection
-            .execute_sql(&self.session, TransactionSelector::SingleUse, statement)
-            .await?;
-        self.connection.delete_session(&self.session).await?; // TODO: we should do something like self.session.take()
-        Ok(result)
+        if let Some(session) = self.session.take() {
+            let result = self
+                .connection
+                .execute_sql(&session, TransactionSelector::SingleUse, statement)
+                .await?;
+
+            Ok(result)
+        } else {
+            Err(Error::Client(
+                "single_use can only be used for doing one read".to_string(),
+            ))
+        }
     }
 }
