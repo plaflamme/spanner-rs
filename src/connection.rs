@@ -1,22 +1,25 @@
 use std::collections::HashMap;
 use std::convert::TryInto;
 
-use crate::proto::google::spanner::v1::execute_sql_request::QueryMode;
-use crate::proto::google::spanner::v1::{
-    spanner_client::SpannerClient, CreateSessionRequest, DeleteSessionRequest, ExecuteSqlRequest,
-    ReadRequest,
-};
+use crate::proto::google::spanner::v1 as proto;
 use crate::{
-    Config, DatabaseId, Error, KeySet, ResultSet, Session, SpannerResource, TransactionSelector,
+    Config, DatabaseId, Error, KeySet, ResultSet, Session, SpannerResource, Transaction,
+    TransactionSelector,
 };
 use async_trait::async_trait;
+use proto::{
+    execute_sql_request::QueryMode, spanner_client::SpannerClient, CommitRequest,
+    CreateSessionRequest, DeleteSessionRequest, ExecuteSqlRequest, ReadRequest,
+};
 use tonic::transport::Channel;
 use tonic::Request;
 
 #[async_trait]
-pub trait Connection: Clone {
+pub(crate) trait Connection: Clone {
     async fn create_session(&mut self) -> Result<Session, Error>;
     async fn delete_session(&mut self, session: Session) -> Result<(), Error>;
+    async fn commit(&mut self, session: &Session, transaction: Transaction) -> Result<(), Error>;
+
     async fn read(
         &mut self,
         table: &str,
@@ -27,7 +30,7 @@ pub trait Connection: Clone {
     async fn execute_sql(
         &mut self,
         session: &Session,
-        selector: TransactionSelector,
+        selector: &TransactionSelector,
         statement: &str,
     ) -> Result<ResultSet, Error>;
 }
@@ -76,6 +79,22 @@ impl Connection for GrpcConnection {
             .await?;
         Ok(())
     }
+
+    async fn commit(&mut self, session: &Session, tx: Transaction) -> Result<(), Error> {
+        self.spanner
+            .commit(Request::new(CommitRequest {
+                session: session.name().to_string(),
+                mutations: vec![],
+                return_commit_stats: false,
+                transaction: Some(proto::commit_request::Transaction::TransactionId(
+                    tx.id().clone(),
+                )),
+                request_options: None,
+            }))
+            .await?;
+        Ok(())
+    }
+
     async fn read(
         &mut self,
         table: &str,
@@ -106,13 +125,13 @@ impl Connection for GrpcConnection {
     async fn execute_sql(
         &mut self,
         session: &Session,
-        selector: TransactionSelector,
+        selector: &TransactionSelector,
         statement: &str,
     ) -> Result<ResultSet, Error> {
         self.spanner
             .execute_sql(Request::new(ExecuteSqlRequest {
                 session: session.name().to_string(),
-                transaction: Some(selector.into()),
+                transaction: Some(selector.clone().into()),
                 sql: statement.to_string(),
                 params: None,                // TODO: statement parameters
                 param_types: HashMap::new(), // TODO: Struct for both values and types

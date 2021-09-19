@@ -1,6 +1,6 @@
 pub use crate::client::*;
 pub use crate::config::Config;
-pub use crate::connection::Connection;
+pub(crate) use crate::connection::Connection;
 pub use crate::error::Error;
 pub use crate::keys::*;
 pub use crate::resource::*;

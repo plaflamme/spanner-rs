@@ -9,6 +9,7 @@ use crate::connection::GrpcConnection;
 use crate::proto::google::spanner::v1 as proto;
 use crate::proto::google::spanner::v1::transaction_options::Mode;
 use crate::proto::google::spanner::v1::transaction_options::ReadOnly;
+use crate::proto::google::spanner::v1::transaction_options::ReadWrite;
 use crate::proto::google::spanner::v1::transaction_selector::Selector;
 use crate::proto::google::spanner::v1::Session as SpannerSession;
 use crate::proto::google::spanner::v1::TransactionOptions;
@@ -97,8 +98,10 @@ impl From<TimestampBound> for proto::transaction_options::read_only::TimestampBo
 }
 
 #[derive(Clone, Debug)]
-pub enum TransactionSelector {
+pub(crate) enum TransactionSelector {
     SingleUse(Option<TimestampBound>),
+    Id(Transaction),
+    Begin,
 }
 
 impl From<TransactionSelector> for SpannerTransactionSelector {
@@ -112,6 +115,37 @@ impl From<TransactionSelector> for SpannerTransactionSelector {
                     })),
                 })),
             },
+            TransactionSelector::Id(tx) => SpannerTransactionSelector {
+                selector: Some(Selector::Id(tx.spanner_tx.id)),
+            },
+            TransactionSelector::Begin => SpannerTransactionSelector {
+                selector: Some(Selector::Begin(TransactionOptions {
+                    mode: Some(Mode::ReadWrite(ReadWrite {})),
+                })),
+            },
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct Transaction {
+    spanner_tx: proto::Transaction,
+}
+
+impl Transaction {
+    pub(crate) fn id(&self) -> &Vec<u8> {
+        &self.spanner_tx.id
+    }
+}
+
+impl From<proto::Transaction> for Transaction {
+    fn from(spanner_tx: proto::Transaction) -> Self {
+        Transaction { spanner_tx }
+    }
+}
+
+impl From<Transaction> for proto::Transaction {
+    fn from(tx: Transaction) -> Self {
+        tx.spanner_tx
     }
 }

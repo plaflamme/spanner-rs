@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use spanner_rs::{Client, DatabaseId, InstanceId, ReadContext, SpannerResource};
+use spanner_rs::{Client, DatabaseId, InstanceId, ReadContext, SpannerResource, Value};
 use std::collections::HashMap;
 use testcontainers::{clients, Container, Docker, Image, WaitForMessage};
 
@@ -131,6 +131,22 @@ async fn test_create_session() -> Result<(), spanner_rs::Error> {
     let row = result_set.iter().next();
 
     assert!(row.is_none());
+
+    client
+        .read_write()
+        .run(|ctx| ctx.execute_sql("INSERT INTO my_table(a,b) VALUES(1,\"one\")"))
+        .await?;
+
+    let result_set = client
+        .single_use()
+        .await?
+        .execute_sql("SELECT * FROM my_table")
+        .await?;
+    let row = result_set.iter().next();
+    assert!(row.is_some());
+    let row = row.unwrap();
+    assert_eq!(row.try_get_by_name("a")?, Value::Int64(1));
+    assert_eq!(row.try_get_by_name("b")?, Value::String("one".to_string()));
 
     Ok(())
 }
