@@ -1,110 +1,41 @@
-use async_trait::async_trait;
-use spanner_rs::{Client, DatabaseId, InstanceId, ReadContext, SpannerResource, Value};
-use std::collections::HashMap;
-use testcontainers::{clients, Container, Docker, Image, WaitForMessage};
+use std::ops::{Deref, DerefMut};
 
-#[derive(Default, Debug, Clone)]
-struct SpannerEmulator;
-impl Image for SpannerEmulator {
-    type Args = Vec<String>;
-    type EnvVars = HashMap<String, String>;
-    type Volumes = HashMap<String, String>;
-    type EntryPoint = std::convert::Infallible;
+use spanner_rs::{Client, DatabaseId, Error, InstanceId, ReadContext, Value};
+use testcontainers::{clients, Container, Docker};
 
-    fn descriptor(&self) -> String {
-        "gcr.io/cloud-spanner-emulator/emulator".to_string()
-    }
+mod spanner_emulator;
 
-    fn wait_until_ready<D: Docker>(&self, container: &testcontainers::Container<'_, D, Self>) {
-        container
-            .logs()
-            .stderr
-            .wait_for_message("gRPC server listening")
-            .unwrap()
-    }
+use ctor::ctor;
+use spanner_emulator::{SpannerContainer, SpannerEmulator};
 
-    fn args(&self) -> Self::Args {
-        Vec::new()
-    }
-
-    fn env_vars(&self) -> Self::EnvVars {
-        HashMap::new()
-    }
-
-    fn volumes(&self) -> Self::Volumes {
-        HashMap::new()
-    }
-
-    fn with_args(self, _arguments: Self::Args) -> Self {
-        self
-    }
-
-    fn with_entrypoint(self, _entryppoint: &Self::EntryPoint) -> Self {
-        self
-    }
-
-    fn entrypoint(&self) -> Option<String> {
-        None
-    }
+// Holds on to Container so it is dropped with Client.
+// This is necessary to keep the container running for the duration of the test.
+struct ClientFixture<'a> {
+    _container: Container<'a, clients::Cli, SpannerEmulator>,
+    client: Client,
 }
-#[async_trait]
-trait SpannerContainer {
-    fn http_port(&self) -> u16;
 
-    async fn post(&self, path: String, body: String) {
-        let response = reqwest::Client::new()
-            .post(format!("http://localhost:{}/v1/{}", self.http_port(), path))
-            .body(body)
-            .send()
-            .await
-            .unwrap();
+impl<'a> Deref for ClientFixture<'a> {
+    type Target = Client;
 
-        assert!(response.status().is_success(), "{:?}", response);
-    }
-
-    async fn with_instance(&self, instance: &InstanceId) -> &Self {
-        self.post(
-            instance.resources_id(),
-            format!(r#"{{"instanceId": "{}"}}"#, instance.name()),
-        )
-        .await;
-        self
-    }
-
-    async fn with_database(&self, database: &DatabaseId, extra_statements: Vec<&str>) -> &Self {
-        let json_statements = extra_statements
-            .into_iter()
-            .map(|s| format!(r#""{}""#, s))
-            .collect::<Vec<String>>()
-            .join(",");
-
-        self.post(
-            database.resources_id(),
-            format!(
-                r#"{{"createStatement":"CREATE DATABASE `{}`", "extraStatements":[{}]}}"#,
-                database.name(),
-                json_statements,
-            ),
-        )
-        .await;
-        self
+    fn deref(&self) -> &Self::Target {
+        &self.client
     }
 }
 
-impl<'a, D: Docker> SpannerContainer for Container<'a, D, SpannerEmulator> {
-    fn http_port(&self) -> u16 {
-        self.get_host_port(9020).unwrap()
+impl<'a> DerefMut for ClientFixture<'a> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.client
     }
 }
 
-#[tokio::test]
-async fn test_create_session() -> Result<(), spanner_rs::Error> {
-    let docker = clients::Cli::default();
-    let container = docker.run(SpannerEmulator);
+#[ctor]
+static DOCKER: clients::Cli = clients::Cli::default();
 
+async fn new_client<'a>() -> Result<ClientFixture<'a>, Error> {
     let instance_id = InstanceId::new("test-project", "test-instance");
     let database_id = DatabaseId::new(&instance_id, "test-database");
-
+    let container = DOCKER.run(SpannerEmulator);
     container
         .with_instance(&instance_id)
         .await
@@ -114,24 +45,35 @@ async fn test_create_session() -> Result<(), spanner_rs::Error> {
         )
         .await;
 
-    let mut client = Client::config()
-        .endpoint(format!(
-            "http://localhost:{}",
-            container.get_host_port(9010).unwrap()
-        ))
+    let client = Client::config()
+        .endpoint(format!("http://localhost:{}", container.grpc_port()))
         .database(database_id)
         .connect()
         .await?;
 
-    let result_set = client
-        .single_use()
-        .await?
-        .execute_sql("SELECT * FROM my_table")
-        .await?;
-    let row = result_set.iter().next();
+    Ok(ClientFixture {
+        _container: container,
+        client,
+    })
+}
 
+#[tokio::test]
+async fn test_single_use() -> Result<(), Error> {
+    let mut client = new_client().await?;
+    let mut single_use = client.single_use().await?;
+
+    let result_set = single_use.execute_sql("SELECT * FROM my_table").await?;
+    let row = result_set.iter().next();
     assert!(row.is_none());
 
+    let result_set = single_use.execute_sql("SELECT * FROM my_table").await;
+    assert!(result_set.is_err());
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_read_write() -> Result<(), Error> {
+    let mut client = new_client().await?;
     client
         .read_write()
         .run(|ctx| ctx.execute_sql("INSERT INTO my_table(a,b) VALUES(1,\"one\")"))
