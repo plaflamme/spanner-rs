@@ -4,9 +4,9 @@ use prost_types::value::Kind;
 use prost_types::{ListValue, Value as SpannerValue};
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct StructValue(pub Vec<(Option<String>, Value)>);
+pub struct Struct(pub StructType, pub Vec<Value>);
 
-impl StructValue {
+impl Struct {
     pub fn try_from(tpe: &StructType, list_value: ListValue) -> Result<Self, crate::Error> {
         if tpe.0.len() != list_value.values.len() {
             Err(crate::Error::Codec(format!(
@@ -18,18 +18,10 @@ impl StructValue {
             tpe.0
                 .iter()
                 .zip(list_value.values)
-                .map(|((name, tpe), value)| {
-                    Value::try_from(tpe, value).map(|value| (name.clone(), value))
-                })
-                .collect::<Result<Vec<(Option<String>, Value)>, crate::Error>>()
-                .map(StructValue)
+                .map(|((_name, tpe), value)| Value::try_from(tpe, &value))
+                .collect::<Result<Vec<Value>, crate::Error>>()
+                .map(|values| Struct(tpe.clone(), values))
         }
-    }
-}
-
-impl Default for StructValue {
-    fn default() -> Self {
-        Self(Default::default())
     }
 }
 
@@ -47,12 +39,12 @@ pub enum Value {
     // Timestamp
     // Date
     Array(Vec<Value>),
-    Struct(StructValue),
+    Struct(Struct),
 }
 
 impl Value {
-    pub fn try_from(tpe: &Type, value: SpannerValue) -> Result<Self, crate::Error> {
-        if let Some(kind) = value.kind {
+    pub fn try_from(tpe: &Type, value: &SpannerValue) -> Result<Self, crate::Error> {
+        if let Some(kind) = value.kind.clone() {
             match (tpe, kind) {
                 (Type::Bool, Kind::BoolValue(b)) => Ok(Value::Bool(b)),
                 (Type::Int64, Kind::StringValue(s)) => s
@@ -64,11 +56,11 @@ impl Value {
                 (Type::Array(inner), Kind::ListValue(list_value)) => list_value
                     .values
                     .into_iter()
-                    .map(|v| Value::try_from(inner, v))
+                    .map(|v| Value::try_from(inner, &v))
                     .collect::<Result<Vec<Value>, crate::Error>>()
                     .map(Value::Array),
                 (Type::Struct(row_type), Kind::ListValue(list_value)) => {
-                    StructValue::try_from(row_type, list_value).map(Value::Struct)
+                    Struct::try_from(row_type, list_value).map(Value::Struct)
                 }
                 _ => Err(crate::Error::Codec(format!(
                     "invalid value kind type {:?}",
@@ -98,8 +90,8 @@ impl From<Value> for SpannerValue {
             Value::Array(values) => Kind::ListValue(ListValue {
                 values: values.into_iter().map(|v| v.into()).collect(),
             }),
-            Value::Struct(StructValue(values)) => Kind::ListValue(ListValue {
-                values: values.into_iter().map(|(_, value)| value.into()).collect(),
+            Value::Struct(Struct(_, values)) => Kind::ListValue(ListValue {
+                values: values.into_iter().map(|value| value.into()).collect(),
             }),
         };
         Self { kind: Some(kind) }

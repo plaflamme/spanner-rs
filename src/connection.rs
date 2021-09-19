@@ -1,9 +1,13 @@
 use std::collections::HashMap;
 use std::convert::TryInto;
 
+use crate::proto::google::spanner::v1::commit_request;
 use crate::proto::google::spanner::v1::execute_sql_request::QueryMode;
+use crate::proto::google::spanner::v1::transaction_options::{Mode, ReadWrite};
+use crate::proto::google::spanner::v1::transaction_selector::Selector;
 use crate::proto::google::spanner::v1::{
-    spanner_client::SpannerClient, CreateSessionRequest, ExecuteSqlRequest, ReadRequest, Session,
+    spanner_client::SpannerClient, CommitRequest, CreateSessionRequest, ExecuteSqlRequest,
+    ReadRequest, Session, TransactionOptions, TransactionSelector,
 };
 use crate::{Config, DatabaseId, Error, KeySet, ResultSet, SpannerResource};
 use async_trait::async_trait;
@@ -87,10 +91,15 @@ impl Connection for GrpcConnection {
 
     async fn execute_sql(&mut self, statement: &str) -> Result<ResultSet, Error> {
         let session = self.create_session().await?;
-        self.spanner
+        let result = self
+            .spanner
             .execute_sql(Request::new(ExecuteSqlRequest {
-                session: session.name,
-                transaction: None,
+                session: session.name.clone(),
+                transaction: Some(TransactionSelector {
+                    selector: Some(Selector::Begin(TransactionOptions {
+                        mode: Some(Mode::ReadWrite(ReadWrite {})),
+                    })),
+                }),
                 sql: statement.to_string(),
                 params: None,                // TODO: statement parameters
                 param_types: HashMap::new(), // TODO: Struct for both values and types
@@ -102,7 +111,23 @@ impl Connection for GrpcConnection {
                 request_options: None,
             }))
             .await?
-            .into_inner()
-            .try_into()
+            .into_inner();
+        self.spanner
+            .commit(Request::new(CommitRequest {
+                session: session.name.clone(),
+                mutations: vec![],
+                return_commit_stats: false,
+                request_options: None,
+                transaction: Some(commit_request::Transaction::TransactionId(
+                    result
+                        .metadata
+                        .as_ref()
+                        .and_then(|rs| rs.transaction.as_ref())
+                        .map(|tx| tx.id.clone())
+                        .unwrap(),
+                )),
+            }))
+            .await?;
+        result.try_into()
     }
 }

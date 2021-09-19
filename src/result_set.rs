@@ -1,28 +1,35 @@
-use std::collections::BTreeMap;
 use std::convert::TryFrom;
 
 use prost_types::ListValue;
 
 use crate::proto::google::spanner::v1::ResultSet as SpannerResultSet;
+use crate::Error;
 use crate::StructType;
-use crate::StructValue;
 use crate::Value;
 
 pub struct Row {
-    _row_type: StructType,
-    by_name: BTreeMap<String, usize>,
-    columns: StructValue,
+    row_type: StructType,
+    columns: ListValue,
 }
 
 impl Row {
-    pub fn get_value(&self, column: usize) -> Option<&Value> {
-        self.columns.0.get(column).map(|(_, value)| value)
+    pub fn try_get(&self, column: usize) -> Result<Value, Error> {
+        match self.row_type.0.get(column) {
+            None => Err(Error::Codec("fudge".to_string())),
+            Some((_, tpe)) => Value::try_from(tpe, self.columns.values.get(column).unwrap()),
+        }
     }
 
-    pub fn get_by_name(&self, column_name: String) -> Option<&Value> {
-        self.by_name
-            .get(&column_name)
-            .and_then(|idx| self.get_value(*idx))
+    pub fn try_get_by_name(&self, column_name: &str) -> Result<Value, Error> {
+        self.row_type
+            .0
+            .iter()
+            .position(|(name, _)| match name {
+                Some(n) => *n == column_name,
+                None => false,
+            })
+            .ok_or_else(|| Error::Codec("fudge".to_string()))
+            .and_then(|idx| self.try_get(idx))
     }
 }
 
@@ -32,22 +39,12 @@ pub struct ResultSet {
 }
 
 impl ResultSet {
-    pub fn iter(self) -> impl Iterator<Item = Result<Row, crate::Error>> {
+    pub fn iter(self) -> impl Iterator<Item = Row> {
         let row_type = self.row_type.clone();
-        let by_name: BTreeMap<String, usize> = self
-            .row_type
-            .0
-            .iter()
-            .enumerate()
-            .flat_map(|(idx, (name, _))| name.as_ref().map(|n| (n.clone(), idx)))
-            .collect();
 
-        self.rows.into_iter().map(move |row| {
-            StructValue::try_from(&row_type, row).map(|columns| Row {
-                _row_type: row_type.clone(),
-                by_name: by_name.clone(),
-                columns,
-            })
+        self.rows.into_iter().map(move |columns| Row {
+            row_type: row_type.clone(),
+            columns,
         })
     }
 }

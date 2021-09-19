@@ -11,6 +11,14 @@ impl TryFrom<SpannerStructType> for StructType {
     type Error = crate::Error;
 
     fn try_from(value: SpannerStructType) -> Result<Self, Self::Error> {
+        StructType::try_from(&value)
+    }
+}
+
+impl TryFrom<&SpannerStructType> for StructType {
+    type Error = crate::Error;
+
+    fn try_from(value: &SpannerStructType) -> Result<Self, Self::Error> {
         value
             .fields
             .iter()
@@ -96,7 +104,7 @@ impl TryFrom<&SpannerType> for Type {
 
             Some(TypeCode::Struct) => value
                 .struct_type
-                .clone()
+                .as_ref()
                 .ok_or_else(|| Self::Error::Codec("missing struct type definition".to_string()))
                 .and_then(StructType::try_from)
                 .map(Type::Struct),

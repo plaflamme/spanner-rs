@@ -110,7 +110,7 @@ async fn test_create_session() -> Result<(), spanner_rs::Error> {
         .await
         .with_database(
             &database_id,
-            vec!["CREATE TABLE my_table(a INT64, b INT64) PRIMARY KEY(a)"],
+            vec!["CREATE TABLE my_table(a INT64, b STRING(MAX)) PRIMARY KEY(a)"],
         )
         .await;
 
@@ -133,9 +133,15 @@ async fn test_create_session() -> Result<(), spanner_rs::Error> {
 
     assert!(result_set.iter().next().is_none());
 
+    client
+        .execute_sql("INSERT INTO my_table(a,b) VALUES(1,\"one\")")
+        .await?;
     let result_set = client.execute_sql("SELECT * FROM my_table").await?;
-
-    assert!(result_set.iter().next().is_none());
+    let row = result_set.iter().next();
+    assert!(row.is_some());
+    let row = row.unwrap();
+    assert_eq!(row.try_get_by_name("a")?, Value::Int64(1));
+    assert_eq!(row.try_get_by_name("b")?, Value::String("one".to_string()));
 
     Ok(())
 }
