@@ -16,7 +16,7 @@ use tonic::Request;
 #[async_trait]
 pub trait Connection: Clone {
     async fn create_session(&mut self) -> Result<Session, Error>;
-    async fn delete_session(&mut self, session: &Session) -> Result<(), Error>;
+    async fn delete_session(&mut self, session: Session) -> Result<(), Error>;
     async fn read(
         &mut self,
         table: &str,
@@ -68,7 +68,7 @@ impl Connection for GrpcConnection {
             .await?;
         Ok(response.into_inner().into())
     }
-    async fn delete_session(&mut self, session: &Session) -> Result<(), Error> {
+    async fn delete_session(&mut self, session: Session) -> Result<(), Error> {
         self.spanner
             .delete_session(Request::new(DeleteSessionRequest {
                 name: session.name().to_string(),

@@ -2,6 +2,7 @@ use bb8::{Pool, PooledConnection};
 
 use crate::connection::GrpcConnection;
 use crate::result_set::ResultSet;
+use crate::TimestampBound;
 use crate::{session::SessionManager, Config, Connection, Error, TransactionSelector};
 
 pub struct Client {
@@ -27,6 +28,19 @@ impl Client {
         let session = self.session_pool.get().await?;
         Ok(SingleUse {
             connection: self.connection.clone(),
+            bound: None,
+            session: Some(session),
+        })
+    }
+
+    pub async fn single_use_with_bound(
+        &'_ mut self,
+        bound: TimestampBound,
+    ) -> Result<impl ReadContext + '_, Error> {
+        let session = self.session_pool.get().await?;
+        Ok(SingleUse {
+            connection: self.connection.clone(),
+            bound: Some(bound),
             session: Some(session),
         })
     }
@@ -39,6 +53,7 @@ pub trait ReadContext {
 
 struct SingleUse<'a> {
     connection: GrpcConnection,
+    bound: Option<TimestampBound>,
     session: Option<PooledConnection<'a, SessionManager>>,
 }
 
@@ -48,7 +63,11 @@ impl<'a> ReadContext for SingleUse<'a> {
         if let Some(session) = self.session.take() {
             let result = self
                 .connection
-                .execute_sql(&session, TransactionSelector::SingleUse, statement)
+                .execute_sql(
+                    &session,
+                    TransactionSelector::SingleUse(self.bound.clone()),
+                    statement,
+                )
                 .await?;
 
             Ok(result)

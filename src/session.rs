@@ -1,8 +1,12 @@
+use std::time::Duration;
+use std::time::SystemTime;
+
 use bb8::ManageConnection;
 use bb8::PooledConnection;
 use tokio::sync::Mutex;
 
 use crate::connection::GrpcConnection;
+use crate::proto::google::spanner::v1 as proto;
 use crate::proto::google::spanner::v1::transaction_options::Mode;
 use crate::proto::google::spanner::v1::transaction_options::ReadOnly;
 use crate::proto::google::spanner::v1::transaction_selector::Selector;
@@ -55,18 +59,56 @@ impl ManageConnection for SessionManager {
     }
 }
 
+#[derive(Clone, Debug)]
+pub enum TimestampBound {
+    Strong,
+    ReadTimestamp(SystemTime),
+    MinReadTimestamp(SystemTime),
+    ExactStaleness(Duration),
+    MaxStaleness(Duration),
+}
+
+impl From<TimestampBound> for proto::transaction_options::read_only::TimestampBound {
+    fn from(value: TimestampBound) -> Self {
+        match value {
+            TimestampBound::Strong => {
+                proto::transaction_options::read_only::TimestampBound::Strong(true)
+            }
+            TimestampBound::ReadTimestamp(timestamp) => {
+                proto::transaction_options::read_only::TimestampBound::ReadTimestamp(
+                    timestamp.into(),
+                )
+            }
+            TimestampBound::MinReadTimestamp(timestamp) => {
+                proto::transaction_options::read_only::TimestampBound::MinReadTimestamp(
+                    timestamp.into(),
+                )
+            }
+            TimestampBound::MaxStaleness(duration) => {
+                proto::transaction_options::read_only::TimestampBound::MaxStaleness(duration.into())
+            }
+            TimestampBound::ExactStaleness(duration) => {
+                proto::transaction_options::read_only::TimestampBound::ExactStaleness(
+                    duration.into(),
+                )
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
 pub enum TransactionSelector {
-    SingleUse,
+    SingleUse(Option<TimestampBound>),
 }
 
 impl From<TransactionSelector> for SpannerTransactionSelector {
     fn from(value: TransactionSelector) -> Self {
         match value {
-            TransactionSelector::SingleUse => SpannerTransactionSelector {
+            TransactionSelector::SingleUse(bound) => SpannerTransactionSelector {
                 selector: Some(Selector::SingleUse(TransactionOptions {
                     mode: Some(Mode::ReadOnly(ReadOnly {
                         return_read_timestamp: false,
-                        timestamp_bound: None,
+                        timestamp_bound: bound.map(Into::into),
                     })),
                 })),
             },
