@@ -1,21 +1,22 @@
 use std::collections::HashMap;
 use std::convert::TryInto;
 
-use crate::proto::google::spanner::v1::commit_request;
 use crate::proto::google::spanner::v1::execute_sql_request::QueryMode;
-use crate::proto::google::spanner::v1::transaction_options::{Mode, ReadWrite};
-use crate::proto::google::spanner::v1::transaction_selector::Selector;
 use crate::proto::google::spanner::v1::{
-    spanner_client::SpannerClient, CommitRequest, CreateSessionRequest, ExecuteSqlRequest,
-    ReadRequest, Session, TransactionOptions, TransactionSelector,
+    spanner_client::SpannerClient, CreateSessionRequest, DeleteSessionRequest, ExecuteSqlRequest,
+    ReadRequest,
 };
-use crate::{Config, DatabaseId, Error, KeySet, ResultSet, SpannerResource};
+use crate::{
+    Config, DatabaseId, Error, KeySet, ResultSet, Session, SpannerResource, TransactionSelector,
+};
 use async_trait::async_trait;
 use tonic::transport::Channel;
 use tonic::Request;
 
 #[async_trait]
-pub trait Connection {
+pub trait Connection: Clone {
+    async fn create_session(&mut self) -> Result<Session, Error>;
+    async fn delete_session(&mut self, session: &Session) -> Result<(), Error>;
     async fn read(
         &mut self,
         table: &str,
@@ -23,9 +24,15 @@ pub trait Connection {
         columns: Vec<String>,
     ) -> Result<ResultSet, Error>;
 
-    async fn execute_sql(&mut self, statement: &str) -> Result<ResultSet, Error>;
+    async fn execute_sql(
+        &mut self,
+        session: &Session,
+        selector: TransactionSelector,
+        statement: &str,
+    ) -> Result<ResultSet, Error>;
 }
 
+#[derive(Clone)]
 pub(crate) struct GrpcConnection {
     database: DatabaseId,
     spanner: SpannerClient<Channel>,
@@ -47,7 +54,10 @@ impl GrpcConnection {
             spanner: SpannerClient::new(channel),
         })
     }
+}
 
+#[async_trait]
+impl Connection for GrpcConnection {
     async fn create_session(&mut self) -> Result<Session, Error> {
         let response = self
             .spanner
@@ -56,12 +66,16 @@ impl GrpcConnection {
                 session: None,
             }))
             .await?;
-        Ok(response.into_inner())
+        Ok(response.into_inner().into())
     }
-}
-
-#[async_trait]
-impl Connection for GrpcConnection {
+    async fn delete_session(&mut self, session: &Session) -> Result<(), Error> {
+        self.spanner
+            .delete_session(Request::new(DeleteSessionRequest {
+                name: session.name().to_string(),
+            }))
+            .await?;
+        Ok(())
+    }
     async fn read(
         &mut self,
         table: &str,
@@ -72,7 +86,7 @@ impl Connection for GrpcConnection {
         let result_set = self
             .spanner
             .read(Request::new(ReadRequest {
-                session: session.name,
+                session: session.name().to_string(),
                 transaction: None,
                 table: table.to_string(),
                 index: "".to_string(),
@@ -89,17 +103,16 @@ impl Connection for GrpcConnection {
         result_set.try_into()
     }
 
-    async fn execute_sql(&mut self, statement: &str) -> Result<ResultSet, Error> {
-        let session = self.create_session().await?;
-        let result = self
-            .spanner
+    async fn execute_sql(
+        &mut self,
+        session: &Session,
+        selector: TransactionSelector,
+        statement: &str,
+    ) -> Result<ResultSet, Error> {
+        self.spanner
             .execute_sql(Request::new(ExecuteSqlRequest {
-                session: session.name.clone(),
-                transaction: Some(TransactionSelector {
-                    selector: Some(Selector::Begin(TransactionOptions {
-                        mode: Some(Mode::ReadWrite(ReadWrite {})),
-                    })),
-                }),
+                session: session.name().to_string(),
+                transaction: Some(selector.into()),
                 sql: statement.to_string(),
                 params: None,                // TODO: statement parameters
                 param_types: HashMap::new(), // TODO: Struct for both values and types
@@ -111,23 +124,7 @@ impl Connection for GrpcConnection {
                 request_options: None,
             }))
             .await?
-            .into_inner();
-        self.spanner
-            .commit(Request::new(CommitRequest {
-                session: session.name.clone(),
-                mutations: vec![],
-                return_commit_stats: false,
-                request_options: None,
-                transaction: Some(commit_request::Transaction::TransactionId(
-                    result
-                        .metadata
-                        .as_ref()
-                        .and_then(|rs| rs.transaction.as_ref())
-                        .map(|tx| tx.id.clone())
-                        .unwrap(),
-                )),
-            }))
-            .await?;
-        result.try_into()
+            .into_inner()
+            .try_into()
     }
 }

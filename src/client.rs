@@ -1,32 +1,49 @@
-use crate::keys::KeySet;
+use crate::connection::GrpcConnection;
 use crate::result_set::ResultSet;
-use crate::{Config, Connection, Error};
+use crate::{Config, Connection, Error, Session, TransactionSelector};
 
 pub struct Client {
-    connection: Box<dyn Connection>,
+    connection: GrpcConnection,
 }
 
 impl Client {
-    pub fn connect(connection: impl Connection + 'static) -> Self {
-        Self {
-            connection: Box::new(connection),
-        }
-    }
-
     pub fn config() -> Config {
         Config::default()
     }
+}
 
-    pub async fn read(
-        &mut self,
-        table: &str,
-        key_set: KeySet,
-        columns: Vec<String>,
-    ) -> Result<ResultSet, Error> {
-        self.connection.read(table, key_set, columns).await
+impl Client {
+    pub(crate) fn connect(connection: GrpcConnection) -> Self {
+        Self { connection }
     }
 
-    pub async fn execute_sql(&mut self, statement: &str) -> Result<ResultSet, Error> {
-        self.connection.execute_sql(statement).await
+    pub async fn single_use(&mut self) -> Result<impl ReadContext, Error> {
+        let session = self.connection.create_session().await?;
+        Ok(SingleUse {
+            connection: self.connection.clone(),
+            session,
+        })
+    }
+}
+
+#[async_trait::async_trait]
+pub trait ReadContext {
+    async fn execute_sql(&mut self, statement: &str) -> Result<ResultSet, Error>;
+}
+
+struct SingleUse {
+    connection: GrpcConnection,
+    session: Session,
+}
+
+#[async_trait::async_trait]
+impl ReadContext for SingleUse {
+    async fn execute_sql(&mut self, statement: &str) -> Result<ResultSet, Error> {
+        let result = self
+            .connection
+            .execute_sql(&self.session, TransactionSelector::SingleUse, statement)
+            .await?;
+        self.connection.delete_session(&self.session).await?; // TODO: we should do something like self.session.take()
+        Ok(result)
     }
 }
