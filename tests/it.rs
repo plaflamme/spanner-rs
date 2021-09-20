@@ -58,16 +58,17 @@ async fn new_client<'a>() -> Result<ClientFixture<'a>, Error> {
 }
 
 #[tokio::test]
-async fn test_single_use() -> Result<(), Error> {
-    let mut client = new_client().await?;
-    let mut single_use = client.single_use().await?;
+async fn test_read_only() -> Result<(), Error> {
+    let client = new_client().await?;
+    let mut read_only = client.read_only();
 
-    let result_set = single_use.execute_sql("SELECT * FROM my_table").await?;
+    let result_set = read_only.execute_sql("SELECT * FROM my_table").await?;
     let row = result_set.iter().next();
     assert!(row.is_none());
 
-    let result_set = single_use.execute_sql("SELECT * FROM my_table").await;
-    assert!(result_set.is_err());
+    let result_set = read_only.execute_sql("SELECT * FROM my_table").await?;
+    let row = result_set.iter().next();
+    assert!(row.is_none());
     Ok(())
 }
 
@@ -80,8 +81,7 @@ async fn test_read_write() -> Result<(), Error> {
         .await?;
 
     let result_set = client
-        .single_use()
-        .await?
+        .read_only()
         .execute_sql("SELECT * FROM my_table")
         .await?;
     let row = result_set.iter().next();

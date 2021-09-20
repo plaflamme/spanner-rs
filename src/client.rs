@@ -28,25 +28,20 @@ impl Client {
         }
     }
 
-    pub async fn single_use(&'_ mut self) -> Result<impl ReadContext + '_, Error> {
-        let session = self.session_pool.get().await?;
-        Ok(SingleUse {
+    pub fn read_only(&self) -> impl ReadContext {
+        ReadOnly {
             connection: self.connection.clone(),
             bound: None,
-            session: Some(session),
-        })
+            session_pool: self.session_pool.clone(),
+        }
     }
 
-    pub async fn single_use_with_bound(
-        &'_ mut self,
-        bound: TimestampBound,
-    ) -> Result<impl ReadContext + '_, Error> {
-        let session = self.session_pool.get().await?;
-        Ok(SingleUse {
+    pub fn read_only_with_bound(&self, bound: TimestampBound) -> impl ReadContext {
+        ReadOnly {
             connection: self.connection.clone(),
             bound: Some(bound),
-            session: Some(session),
-        })
+            session_pool: self.session_pool.clone(),
+        }
     }
 
     pub fn read_write(&mut self) -> TxRunner {
@@ -62,31 +57,26 @@ pub trait ReadContext {
     async fn execute_sql(&mut self, statement: &str) -> Result<ResultSet, Error>;
 }
 
-struct SingleUse<'a> {
+struct ReadOnly {
     connection: GrpcConnection,
     bound: Option<TimestampBound>,
-    session: Option<PooledConnection<'a, SessionManager>>,
+    session_pool: Pool<SessionManager>,
 }
 
 #[async_trait::async_trait]
-impl<'a> ReadContext for SingleUse<'a> {
+impl ReadContext for ReadOnly {
     async fn execute_sql(&mut self, statement: &str) -> Result<ResultSet, Error> {
-        if let Some(session) = self.session.take() {
-            let result = self
-                .connection
-                .execute_sql(
-                    &session,
-                    &TransactionSelector::SingleUse(self.bound.clone()),
-                    statement,
-                )
-                .await?;
+        let session = self.session_pool.get().await?;
+        let result = self
+            .connection
+            .execute_sql(
+                &session,
+                &TransactionSelector::SingleUse(self.bound.clone()),
+                statement,
+            )
+            .await?;
 
-            Ok(result)
-        } else {
-            Err(Error::Client(
-                "single_use can only be used for doing one read".to_string(),
-            ))
-        }
+        Ok(result)
     }
 }
 pub struct TransactionContext<'a> {
