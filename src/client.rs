@@ -79,20 +79,26 @@ impl ReadContext for ReadOnly {
         Ok(result)
     }
 }
-pub struct TransactionContext<'a> {
+
+#[async_trait::async_trait]
+pub trait TransactionContext: ReadContext {
+    async fn execute_update(&mut self, statement: &str) -> Result<i64, Error>;
+}
+struct Tx<'a> {
     connection: GrpcConnection,
     session: &'a PooledConnection<'a, SessionManager>,
     selector: TransactionSelector,
 }
 
 #[async_trait::async_trait]
-impl<'a> ReadContext for TransactionContext<'a> {
+impl<'a> ReadContext for Tx<'a> {
     async fn execute_sql(&mut self, statement: &str) -> Result<ResultSet, Error> {
         let result_set = self
             .connection
-            .execute_sql(&self.session, &self.selector, statement)
+            .execute_sql(self.session, &self.selector, statement)
             .await?;
 
+        // TODO: this is brittle, if we forget to do this in some other method, then we risk not committing.
         if let TransactionSelector::Begin = self.selector {
             if let Some(tx) = result_set.transaction.as_ref() {
                 self.selector = TransactionSelector::Id(tx.clone());
@@ -100,6 +106,17 @@ impl<'a> ReadContext for TransactionContext<'a> {
         }
 
         Ok(result_set)
+    }
+}
+
+#[async_trait::async_trait]
+impl<'a> TransactionContext for Tx<'a> {
+    async fn execute_update(&mut self, statement: &str) -> Result<i64, Error> {
+        let result_set = self.execute_sql(statement).await?;
+        result_set
+            .stats
+            .row_count
+            .ok_or_else(|| Error::Client("no row count available. This may be the result of using execute_update on a statement that did not contain DML.".to_string()))
     }
 }
 
@@ -112,12 +129,12 @@ impl TxRunner {
     pub async fn run<O, F>(&mut self, mut work: F) -> Result<O, Error>
     where
         F: for<'a> FnMut(
-            &'a mut TransactionContext,
+            &'a mut dyn TransactionContext,
         ) -> Pin<Box<dyn Future<Output = Result<O, Error>> + 'a>>,
         F: Send,
     {
         let session = self.session_pool.get().await?;
-        let mut ctx = TransactionContext {
+        let mut ctx = Tx {
             connection: self.connection.clone(),
             session: &session,
             selector: TransactionSelector::Begin,

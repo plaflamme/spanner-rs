@@ -75,10 +75,12 @@ async fn test_read_only() -> Result<(), Error> {
 #[tokio::test]
 async fn test_read_write() -> Result<(), Error> {
     let mut client = new_client().await?;
-    client
+    let row_count = client
         .read_write()
-        .run(|ctx| ctx.execute_sql("INSERT INTO my_table(a,b) VALUES(1,\"one\")"))
+        .run(|ctx| ctx.execute_update("INSERT INTO my_table(a,b) VALUES(1,\"one\")"))
         .await?;
+
+    assert_eq!(row_count, 1);
 
     let result_set = client
         .read_only()

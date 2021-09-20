@@ -1,8 +1,9 @@
 use std::convert::TryFrom;
+use std::convert::TryInto;
 
 use prost_types::ListValue;
 
-use crate::proto::google::spanner::v1::ResultSet as SpannerResultSet;
+use crate::proto::google::spanner::v1 as proto;
 use crate::Error;
 use crate::StructType;
 use crate::Transaction;
@@ -34,10 +35,32 @@ impl Row {
     }
 }
 
+#[derive(Debug)]
+pub(crate) struct Stats {
+    pub(crate) row_count: Option<i64>,
+}
+
+impl TryFrom<proto::ResultSetStats> for Stats {
+    type Error = Error;
+
+    fn try_from(value: proto::ResultSetStats) -> Result<Self, Self::Error> {
+        let row_count = match value.row_count {
+            Some(proto::result_set_stats::RowCount::RowCountExact(exact)) => Ok(Some(exact)),
+            Some(proto::result_set_stats::RowCount::RowCountLowerBound(_)) => Err(Error::Client(
+                "lower bound row count is unsupported".to_string(),
+            )),
+            None => Ok(None),
+        }?;
+        Ok(Self { row_count })
+    }
+}
+
+#[derive(Debug)]
 pub struct ResultSet {
     row_type: StructType,
     rows: Vec<ListValue>,
     pub(crate) transaction: Option<Transaction>,
+    pub(crate) stats: Stats,
 }
 
 impl ResultSet {
@@ -51,10 +74,10 @@ impl ResultSet {
     }
 }
 
-impl TryFrom<SpannerResultSet> for ResultSet {
+impl TryFrom<proto::ResultSet> for ResultSet {
     type Error = crate::Error;
 
-    fn try_from(value: SpannerResultSet) -> Result<Self, Self::Error> {
+    fn try_from(value: proto::ResultSet) -> Result<Self, Self::Error> {
         let metadata = value
             .metadata
             .ok_or_else(|| Self::Error::Codec("missing result set metadata".to_string()))?;
@@ -68,6 +91,7 @@ impl TryFrom<SpannerResultSet> for ResultSet {
             row_type,
             rows: value.rows,
             transaction: metadata.transaction.map(Transaction::from),
+            stats: value.stats.unwrap_or_default().try_into()?,
         })
     }
 }
