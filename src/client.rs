@@ -7,7 +7,7 @@ use tonic::Code;
 use crate::connection::GrpcConnection;
 use crate::result_set::ResultSet;
 use crate::TimestampBound;
-use crate::{session::SessionManager, Config, Connection, Error, TransactionSelector};
+use crate::{session::SessionManager, ConfigBuilder, Connection, Error, TransactionSelector};
 
 pub struct Client {
     connection: GrpcConnection,
@@ -15,8 +15,8 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn config() -> Config {
-        Config::default()
+    pub fn config() -> ConfigBuilder {
+        ConfigBuilder::default()
     }
 }
 

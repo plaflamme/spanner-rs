@@ -34,7 +34,7 @@ static DOCKER: clients::Cli = clients::Cli::default();
 
 async fn new_client<'a>() -> Result<ClientFixture<'a>, Error> {
     let instance_id = InstanceId::new("test-project", "test-instance");
-    let database_id = DatabaseId::new(&instance_id, "test-database");
+    let database_id = DatabaseId::new(instance_id.clone(), "test-database");
     let container = DOCKER.run(SpannerEmulator);
     container
         .with_instance(&instance_id)

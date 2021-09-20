@@ -1,3 +1,4 @@
+use crate::config::{ConfigBuilderError, SessionPoolConfigBuilderError};
 use bb8::RunError;
 
 #[derive(thiserror::Error, Debug)]
@@ -22,5 +23,17 @@ impl From<RunError<Error>> for Error {
             RunError::User(error) => error,
             RunError::TimedOut => Error::Client("timeout while obtaining new session".to_string()),
         }
+    }
+}
+
+impl From<ConfigBuilderError> for Error {
+    fn from(value: ConfigBuilderError) -> Self {
+        Error::Config(format!("{}", value))
+    }
+}
+
+impl From<SessionPoolConfigBuilderError> for Error {
+    fn from(value: SessionPoolConfigBuilderError) -> Self {
+        Error::Config(format!("{}", value))
     }
 }

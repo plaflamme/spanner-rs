@@ -3,7 +3,7 @@ use std::convert::TryInto;
 
 use crate::proto::google::spanner::v1 as proto;
 use crate::{
-    Config, DatabaseId, Error, KeySet, ResultSet, Session, SpannerResource, Transaction,
+    DatabaseId, Error, KeySet, ResultSet, Session, SpannerResource, Transaction,
     TransactionSelector,
 };
 use async_trait::async_trait;
@@ -43,18 +43,14 @@ pub(crate) struct GrpcConnection {
 }
 
 impl GrpcConnection {
-    pub(crate) async fn connect(config: Config) -> Result<Self, Error> {
-        let channel = Channel::from_shared(
-            config
-                .endpoint
-                .ok_or_else(|| Error::Config("unspecified endpoint".to_string()))?,
-        )
-        .map_err(|invalid_uri| Error::Config(format!("invalid endpoint: {}", invalid_uri)))?
-        .connect()
-        .await?;
+    pub(crate) async fn connect(endpoint: String, database: DatabaseId) -> Result<Self, Error> {
+        let channel = Channel::from_shared(endpoint)
+            .map_err(|invalid_uri| Error::Config(format!("invalid endpoint: {}", invalid_uri)))?
+            .connect()
+            .await?;
 
         Ok(Self {
-            database: config.database.unwrap(),
+            database,
             spanner: SpannerClient::new(channel),
         })
     }

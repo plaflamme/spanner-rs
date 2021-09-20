@@ -41,8 +41,8 @@ impl SpannerResource for InstanceId {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DatabaseId(InstanceId, String);
 impl DatabaseId {
-    pub fn new(instance: &InstanceId, name: &str) -> Self {
-        Self(instance.clone(), name.to_string())
+    pub fn new(instance: InstanceId, name: &str) -> Self {
+        Self(instance, name.to_string())
     }
 }
 
@@ -81,7 +81,7 @@ mod test {
     #[test]
     fn test_database_id() {
         let database_id = DatabaseId::new(
-            &InstanceId::new("test-project", "test-instance"),
+            InstanceId::new("test-project", "test-instance"),
             "test-database",
         );
         assert_eq!(database_id.name(), "test-database");
