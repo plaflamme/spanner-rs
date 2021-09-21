@@ -1,6 +1,9 @@
+use std::str::FromStr;
+
 use crate::proto::google::spanner::v1 as proto;
 use crate::{Error, StructType, Type};
 
+use bigdecimal::BigDecimal;
 use prost::bytes::Bytes;
 use prost_types::value::Kind;
 use prost_types::{ListValue, Value as SpannerValue};
@@ -37,7 +40,7 @@ pub enum Value {
     String(String),
     Bytes(Bytes),
     // Json,
-    // Numeric,
+    Numeric(BigDecimal),
     // Timestamp,
     // Date,
     Array(Vec<Value>),
@@ -93,6 +96,13 @@ impl Value {
                     return Ok(Value::Float64(n));
                 }
             }
+            Type::Numeric => {
+                if let Kind::StringValue(s) = kind {
+                    return BigDecimal::from_str(&s)
+                        .map(Value::Numeric)
+                        .map_err(|_| crate::Error::Codec(format!("{} is not a valid Numeric", s)));
+                }
+            }
             Type::String => {
                 if let Kind::StringValue(s) = kind {
                     return Ok(Value::String(s));
@@ -121,7 +131,6 @@ impl Value {
                 }
             }
             Type::Json => todo!(),
-            Type::Numeric => todo!(),
             Type::Timestamp => todo!(),
             Type::Date => todo!(),
         }
@@ -148,6 +157,7 @@ impl From<Value> for SpannerValue {
             Value::Bytes(b) => Kind::StringValue(base64::encode(b)),
             Value::Int64(i) => Kind::StringValue(i.to_string()),
             Value::Float64(f) => Kind::NumberValue(f),
+            Value::Numeric(n) => Kind::StringValue(n.to_string()),
             Value::String(s) => Kind::StringValue(s),
             Value::Array(values) => Kind::ListValue(ListValue {
                 values: values.into_iter().map(|v| v.into()).collect(),
@@ -162,6 +172,7 @@ impl From<Value> for SpannerValue {
 
 #[cfg(test)]
 mod test {
+
     use super::*;
 
     fn spanner_value(kind: Kind) -> SpannerValue {
@@ -280,6 +291,34 @@ mod test {
         assert_invalid(Type::Int64, Kind::StringValue(u64::MAX.to_string()));
         assert_invalid(
             Type::Int64,
+            Kind::StringValue("this is not a number".to_string()),
+        );
+    }
+
+    #[test]
+    fn test_value_numeric() {
+        assert_try_from(
+            Type::Numeric,
+            Kind::StringValue(
+                "987654321098765432109876543210.987654321098765432109876543210".to_string(),
+            ),
+            Value::Numeric(
+                BigDecimal::parse_bytes(
+                    "987654321098765432109876543210.987654321098765432109876543210".as_bytes(),
+                    10,
+                )
+                .unwrap(),
+            ),
+        );
+        assert_try_from(
+            Type::Numeric,
+            Kind::StringValue("1e-24".to_string()),
+            Value::Numeric(BigDecimal::parse_bytes("1e-24".as_bytes(), 10).unwrap()),
+        );
+        assert_nullable(Type::Numeric);
+        assert_invalid(Type::Numeric, Kind::NumberValue(6.0));
+        assert_invalid(
+            Type::Numeric,
             Kind::StringValue("this is not a number".to_string()),
         );
     }
