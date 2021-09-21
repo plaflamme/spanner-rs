@@ -39,7 +39,7 @@ pub enum Value {
     Float64(f64),
     String(String),
     Bytes(Bytes),
-    // Json,
+    Json(String), // TODO: serde-json feature
     Numeric(BigDecimal),
     // Timestamp,
     // Date,
@@ -130,7 +130,11 @@ impl Value {
                         .map(|bytes| Value::Bytes(Bytes::from(bytes)));
                 }
             }
-            Type::Json => todo!(),
+            Type::Json => {
+                if let Kind::StringValue(json) = kind {
+                    return Ok(Value::Json(json));
+                }
+            }
             Type::Timestamp => todo!(),
             Type::Date => todo!(),
         }
@@ -152,16 +156,17 @@ impl From<i64> for Value {
 impl From<Value> for SpannerValue {
     fn from(value: Value) -> Self {
         let kind = match value {
-            Value::Null(tpe) => Kind::NullValue(tpe.code() as i32),
-            Value::Bool(b) => Kind::BoolValue(b),
-            Value::Bytes(b) => Kind::StringValue(base64::encode(b)),
-            Value::Int64(i) => Kind::StringValue(i.to_string()),
-            Value::Float64(f) => Kind::NumberValue(f),
-            Value::Numeric(n) => Kind::StringValue(n.to_string()),
-            Value::String(s) => Kind::StringValue(s),
             Value::Array(values) => Kind::ListValue(ListValue {
                 values: values.into_iter().map(|v| v.into()).collect(),
             }),
+            Value::Bool(b) => Kind::BoolValue(b),
+            Value::Bytes(b) => Kind::StringValue(base64::encode(b)),
+            Value::Float64(f) => Kind::NumberValue(f),
+            Value::Int64(i) => Kind::StringValue(i.to_string()),
+            Value::Json(json) => Kind::StringValue(json),
+            Value::Null(tpe) => Kind::NullValue(tpe.code() as i32),
+            Value::Numeric(n) => Kind::StringValue(n.to_string()),
+            Value::String(s) => Kind::StringValue(s),
             Value::Struct(Struct(_, values)) => Kind::ListValue(ListValue {
                 values: values.into_iter().map(|value| value.into()).collect(),
             }),
@@ -293,6 +298,17 @@ mod test {
             Type::Int64,
             Kind::StringValue("this is not a number".to_string()),
         );
+    }
+
+    #[test]
+    fn test_value_json() {
+        assert_try_from(
+            Type::Json,
+            Kind::StringValue("this is json".to_string()),
+            Value::Json("this is json".to_string()),
+        );
+        assert_nullable(Type::Json);
+        assert_invalid(Type::Json, Kind::BoolValue(true));
     }
 
     #[test]
