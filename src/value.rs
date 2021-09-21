@@ -1,4 +1,5 @@
-use crate::{StructType, Type};
+use crate::proto::google::spanner::v1 as proto;
+use crate::{Error, StructType, Type};
 
 use prost_types::value::Kind;
 use prost_types::{ListValue, Value as SpannerValue};
@@ -18,7 +19,7 @@ impl Struct {
             tpe.0
                 .iter()
                 .zip(list_value.values)
-                .map(|((_name, tpe), value)| Value::try_from(tpe, &value))
+                .map(|((_name, tpe), value)| Value::try_from(tpe, value))
                 .collect::<Result<Vec<Value>, crate::Error>>()
                 .map(|values| Struct(tpe.clone(), values))
         }
@@ -33,43 +34,96 @@ pub enum Value {
     Int64(i64),
     Float64(f64),
     String(String),
-    // Bytes
-    // Json
-    // Numeric
-    // Timestamp
-    // Date
+    // Bytes,
+    // Json,
+    // Numeric,
+    // Timestamp,
+    // Date,
     Array(Vec<Value>),
     Struct(Struct),
 }
 
+fn name_of(kind: Kind) -> &'static str {
+    match kind {
+        Kind::BoolValue(_) => "BoolValue",
+        Kind::ListValue(_) => "ListValue",
+        Kind::NullValue(_) => "NullValue",
+        Kind::NumberValue(_) => "NumberValue",
+        Kind::StringValue(_) => "StringValue",
+        Kind::StructValue(_) => "StructValue",
+    }
+}
+
 impl Value {
-    pub fn try_from(tpe: &Type, value: &SpannerValue) -> Result<Self, crate::Error> {
-        if let Some(kind) = value.kind.clone() {
-            match (tpe, kind) {
-                (Type::Bool, Kind::BoolValue(b)) => Ok(Value::Bool(b)),
-                (Type::Int64, Kind::StringValue(s)) => s
-                    .parse::<i64>()
-                    .map(Value::Int64)
-                    .map_err(|_| crate::Error::Codec(format!("{} is not a valid Int64", s))),
-                (Type::Float64, Kind::NumberValue(n)) => Ok(Value::Float64(n)),
-                (Type::String, Kind::StringValue(s)) => Ok(Value::String(s)),
-                (Type::Array(inner), Kind::ListValue(list_value)) => list_value
-                    .values
-                    .into_iter()
-                    .map(|v| Value::try_from(inner, &v))
-                    .collect::<Result<Vec<Value>, crate::Error>>()
-                    .map(Value::Array),
-                (Type::Struct(row_type), Kind::ListValue(list_value)) => {
-                    Struct::try_from(row_type, list_value).map(Value::Struct)
+    pub fn try_from(tpe: &Type, value: SpannerValue) -> Result<Self, crate::Error> {
+        let kind = value
+            .kind
+            .ok_or_else(|| Error::Codec("unexpected missing value format".to_string()))?;
+
+        if let Kind::NullValue(type_code) = kind {
+            if let Some(type_code) = proto::TypeCode::from_i32(type_code) {
+                if tpe.code() == type_code {
+                    return Ok(Value::Null(tpe.clone()));
                 }
-                _ => Err(crate::Error::Codec(format!(
-                    "invalid value kind type {:?}",
-                    tpe
-                ))),
             }
-        } else {
-            Ok(Value::Null(tpe.clone()))
+            return Err(Error::Codec(format!(
+                "null value had unexpected type code {}, expected {}",
+                type_code,
+                tpe.code() as i32
+            )));
         }
+
+        match tpe {
+            Type::Bool => {
+                if let Kind::BoolValue(b) = kind {
+                    return Ok(Value::Bool(b));
+                }
+            }
+            Type::Int64 => {
+                if let Kind::StringValue(s) = kind {
+                    return s
+                        .parse::<i64>()
+                        .map(Value::Int64)
+                        .map_err(|_| crate::Error::Codec(format!("{} is not a valid Int64", s)));
+                }
+            }
+            Type::Float64 => {
+                if let Kind::NumberValue(n) = kind {
+                    return Ok(Value::Float64(n));
+                }
+            }
+            Type::String => {
+                if let Kind::StringValue(s) = kind {
+                    return Ok(Value::String(s));
+                }
+            }
+            Type::Array(inner) => {
+                if let Kind::ListValue(list_value) = kind {
+                    return list_value
+                        .values
+                        .into_iter()
+                        .map(|v| Value::try_from(inner, v))
+                        .collect::<Result<Vec<Value>, crate::Error>>()
+                        .map(Value::Array);
+                }
+            }
+            Type::Struct(struct_type) => {
+                if let Kind::ListValue(list_value) = kind {
+                    return Struct::try_from(struct_type, list_value).map(Value::Struct);
+                }
+            }
+            Type::Bytes => todo!(),
+            Type::Json => todo!(),
+            Type::Numeric => todo!(),
+            Type::Timestamp => todo!(),
+            Type::Date => todo!(),
+        }
+
+        Err(Error::Codec(format!(
+            "unexpected value kind {} for type {:?}",
+            name_of(kind),
+            tpe.code(),
+        )))
     }
 }
 

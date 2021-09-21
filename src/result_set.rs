@@ -18,7 +18,9 @@ impl Row {
     pub fn try_get(&self, column: usize) -> Result<Value, Error> {
         match self.row_type.0.get(column) {
             None => Err(Error::Codec("fudge".to_string())),
-            Some((_, tpe)) => Value::try_from(tpe, self.columns.values.get(column).unwrap()),
+            Some((_, tpe)) => {
+                Value::try_from(tpe, self.columns.values.get(column).unwrap().clone())
+            }
         }
     }
 
