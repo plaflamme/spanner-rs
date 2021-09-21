@@ -1079,6 +1079,7 @@ name = "spanner-rs"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "base64",
  "bb8",
  "ctor",
  "derive_builder",

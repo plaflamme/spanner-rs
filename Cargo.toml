@@ -5,6 +5,7 @@ edition = "2018"
 
 [dependencies]
 async-trait = "0.1"
+base64 = "0.13"
 bb8 = "0.7"
 derive_builder = "0.10"
 prost = "0.8"

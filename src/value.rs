@@ -1,6 +1,7 @@
 use crate::proto::google::spanner::v1 as proto;
 use crate::{Error, StructType, Type};
 
+use prost::bytes::Bytes;
 use prost_types::value::Kind;
 use prost_types::{ListValue, Value as SpannerValue};
 
@@ -34,7 +35,7 @@ pub enum Value {
     Int64(i64),
     Float64(f64),
     String(String),
-    // Bytes,
+    Bytes(Bytes),
     // Json,
     // Numeric,
     // Timestamp,
@@ -55,7 +56,7 @@ fn name_of(kind: Kind) -> &'static str {
 }
 
 impl Value {
-    pub fn try_from(tpe: &Type, value: SpannerValue) -> Result<Self, crate::Error> {
+    pub(crate) fn try_from(tpe: &Type, value: SpannerValue) -> Result<Self, crate::Error> {
         let kind = value
             .kind
             .ok_or_else(|| Error::Codec("unexpected missing value format".to_string()))?;
@@ -112,7 +113,13 @@ impl Value {
                     return Struct::try_from(struct_type, list_value).map(Value::Struct);
                 }
             }
-            Type::Bytes => todo!(),
+            Type::Bytes => {
+                if let Kind::StringValue(base64) = kind {
+                    return base64::decode(base64)
+                        .map_err(|e| Error::Codec(format!("invalid bytes value: {}", e)))
+                        .map(|bytes| Value::Bytes(Bytes::from(bytes)));
+                }
+            }
             Type::Json => todo!(),
             Type::Numeric => todo!(),
             Type::Timestamp => todo!(),
@@ -138,6 +145,7 @@ impl From<Value> for SpannerValue {
         let kind = match value {
             Value::Null(tpe) => Kind::NullValue(tpe.code() as i32),
             Value::Bool(b) => Kind::BoolValue(b),
+            Value::Bytes(b) => Kind::StringValue(base64::encode(b)),
             Value::Int64(i) => Kind::StringValue(i.to_string()),
             Value::Float64(f) => Kind::NumberValue(f),
             Value::String(s) => Kind::StringValue(s),
