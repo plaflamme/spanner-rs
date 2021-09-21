@@ -7,7 +7,7 @@ use prost_types::{ListValue, Value as SpannerValue};
 pub struct Struct(pub StructType, pub Vec<Value>);
 
 impl Struct {
-    pub fn try_from(tpe: &StructType, list_value: ListValue) -> Result<Self, crate::Error> {
+    pub(crate) fn try_from(tpe: &StructType, list_value: ListValue) -> Result<Self, crate::Error> {
         if tpe.0.len() != list_value.values.len() {
             Err(crate::Error::Codec(format!(
                 "unmatched number of fields: expected {}, got {}",
