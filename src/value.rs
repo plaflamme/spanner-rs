@@ -159,3 +159,176 @@ impl From<Value> for SpannerValue {
         Self { kind: Some(kind) }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    fn spanner_value(kind: Kind) -> SpannerValue {
+        SpannerValue { kind: Some(kind) }
+    }
+
+    fn assert_try_from(tpe: Type, kind: Kind, expected: Value) {
+        let value = Value::try_from(&tpe, spanner_value(kind)).unwrap();
+        assert_eq!(value, expected);
+    }
+
+    fn assert_nullable(tpe: Type) {
+        assert_try_from(
+            tpe.clone(),
+            Kind::NullValue(tpe.code() as i32),
+            Value::Null(tpe),
+        );
+    }
+
+    fn assert_invalid(tpe: Type, kind: Kind) {
+        let value = Value::try_from(&tpe, spanner_value(kind));
+        assert!(value.is_err(), "unexpected Ok");
+    }
+
+    #[test]
+    fn test_value_array() {
+        assert_try_from(
+            Type::Array(Box::new(Type::Bool)),
+            Kind::ListValue(ListValue {
+                values: vec![
+                    spanner_value(Kind::BoolValue(true)),
+                    spanner_value(Kind::BoolValue(false)),
+                ],
+            }),
+            Value::Array(vec![Value::Bool(true), Value::Bool(false)]),
+        );
+        assert_nullable(Type::Array(Box::new(Type::Bool)));
+        assert_invalid(Type::Array(Box::new(Type::Bool)), Kind::BoolValue(true));
+    }
+
+    #[test]
+    fn test_value_bool() {
+        assert_try_from(Type::Bool, Kind::BoolValue(true), Value::Bool(true));
+        assert_try_from(Type::Bool, Kind::BoolValue(false), Value::Bool(false));
+        assert_nullable(Type::Bool);
+        assert_invalid(Type::Bool, Kind::NumberValue(6.0));
+    }
+
+    #[test]
+    fn test_value_bytes() {
+        assert_try_from(
+            Type::Bytes,
+            Kind::StringValue(base64::encode(vec![1, 2, 3, 4])),
+            Value::Bytes(Bytes::from(vec![1, 2, 3, 4])),
+        );
+        assert_try_from(
+            Type::Bytes,
+            Kind::StringValue(String::new()),
+            Value::Bytes(Bytes::new()),
+        );
+        assert_nullable(Type::Bytes);
+        assert_invalid(Type::Bytes, Kind::NumberValue(6.0));
+    }
+
+    #[test]
+    fn test_value_float64() {
+        assert_try_from(Type::Float64, Kind::NumberValue(42.0), Value::Float64(42.0));
+        assert_try_from(
+            Type::Float64,
+            Kind::NumberValue(f64::MAX),
+            Value::Float64(f64::MAX),
+        );
+        assert_try_from(
+            Type::Float64,
+            Kind::NumberValue(f64::MIN),
+            Value::Float64(f64::MIN),
+        );
+        assert_try_from(
+            Type::Float64,
+            Kind::NumberValue(f64::NEG_INFINITY),
+            Value::Float64(f64::NEG_INFINITY),
+        );
+        assert_try_from(
+            Type::Float64,
+            Kind::NumberValue(f64::INFINITY),
+            Value::Float64(f64::INFINITY),
+        );
+        assert_nullable(Type::Float64);
+        assert_invalid(Type::Float64, Kind::BoolValue(true));
+        assert_invalid(
+            Type::Float64,
+            Kind::StringValue("this is not a number".to_string()),
+        );
+    }
+
+    #[test]
+    fn test_value_int64() {
+        assert_try_from(
+            Type::Int64,
+            Kind::StringValue("42".to_string()),
+            Value::Int64(42),
+        );
+        assert_try_from(
+            Type::Int64,
+            Kind::StringValue(i64::MAX.to_string()),
+            Value::Int64(i64::MAX),
+        );
+        assert_try_from(
+            Type::Int64,
+            Kind::StringValue(i64::MIN.to_string()),
+            Value::Int64(i64::MIN),
+        );
+        assert_nullable(Type::Int64);
+        assert_invalid(Type::Int64, Kind::NumberValue(6.0));
+        assert_invalid(Type::Int64, Kind::StringValue(f64::MAX.to_string()));
+        assert_invalid(Type::Int64, Kind::StringValue(u64::MAX.to_string()));
+        assert_invalid(
+            Type::Int64,
+            Kind::StringValue("this is not a number".to_string()),
+        );
+    }
+
+    #[test]
+    fn test_value_string() {
+        assert_try_from(
+            Type::String,
+            Kind::StringValue("this is a string".to_string()),
+            Value::String("this is a string".to_string()),
+        );
+        assert_nullable(Type::String);
+        assert_invalid(Type::String, Kind::BoolValue(true));
+    }
+
+    #[test]
+    fn test_value_struct() {
+        let test_tpe = Type::strct(vec![
+            ("bool", Type::Bool),
+            ("int64", Type::Int64),
+            ("string", Type::String),
+            ("null", Type::Float64),
+        ]);
+        assert_try_from(
+            test_tpe.clone(),
+            Kind::ListValue(ListValue {
+                values: vec![
+                    spanner_value(Kind::BoolValue(true)),
+                    spanner_value(Kind::StringValue("42".to_string())),
+                    spanner_value(Kind::StringValue("this is a string".to_string())),
+                    spanner_value(Kind::NullValue(Type::Float64.code() as i32)),
+                ],
+            }),
+            Value::Struct(Struct(
+                StructType(vec![
+                    (Some("bool".to_string()), Type::Bool),
+                    (Some("int64".to_string()), Type::Int64),
+                    (Some("string".to_string()), Type::String),
+                    (Some("null".to_string()), Type::Float64),
+                ]),
+                vec![
+                    Value::Bool(true),
+                    Value::Int64(42),
+                    Value::String("this is a string".to_string()),
+                    Value::Null(Type::Float64),
+                ],
+            )),
+        );
+        assert_nullable(test_tpe.clone());
+        assert_invalid(test_tpe, Kind::BoolValue(true));
+    }
+}
