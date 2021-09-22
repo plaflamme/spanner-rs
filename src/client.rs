@@ -6,8 +6,8 @@ use tonic::Code;
 
 use crate::connection::GrpcConnection;
 use crate::result_set::ResultSet;
-use crate::TimestampBound;
 use crate::{session::SessionManager, ConfigBuilder, Connection, Error, TransactionSelector};
+use crate::{Struct, TimestampBound};
 
 pub struct Client {
     connection: GrpcConnection,
@@ -54,7 +54,11 @@ impl Client {
 
 #[async_trait::async_trait]
 pub trait ReadContext {
-    async fn execute_sql(&mut self, statement: &str) -> Result<ResultSet, Error>;
+    async fn execute_sql(
+        &mut self,
+        statement: &str,
+        parameters: Option<Struct>,
+    ) -> Result<ResultSet, Error>;
 }
 
 struct ReadOnly {
@@ -65,7 +69,11 @@ struct ReadOnly {
 
 #[async_trait::async_trait]
 impl ReadContext for ReadOnly {
-    async fn execute_sql(&mut self, statement: &str) -> Result<ResultSet, Error> {
+    async fn execute_sql(
+        &mut self,
+        statement: &str,
+        parameters: Option<Struct>,
+    ) -> Result<ResultSet, Error> {
         let session = self.session_pool.get().await?;
         let result = self
             .connection
@@ -73,6 +81,7 @@ impl ReadContext for ReadOnly {
                 &session,
                 &TransactionSelector::SingleUse(self.bound.clone()),
                 statement,
+                parameters.unwrap_or_default(),
             )
             .await?;
 
@@ -82,7 +91,11 @@ impl ReadContext for ReadOnly {
 
 #[async_trait::async_trait]
 pub trait TransactionContext: ReadContext {
-    async fn execute_update(&mut self, statement: &str) -> Result<i64, Error>;
+    async fn execute_update(
+        &mut self,
+        statement: &str,
+        parameters: Option<Struct>,
+    ) -> Result<i64, Error>;
 }
 struct Tx<'a> {
     connection: GrpcConnection,
@@ -92,10 +105,19 @@ struct Tx<'a> {
 
 #[async_trait::async_trait]
 impl<'a> ReadContext for Tx<'a> {
-    async fn execute_sql(&mut self, statement: &str) -> Result<ResultSet, Error> {
+    async fn execute_sql(
+        &mut self,
+        statement: &str,
+        parameters: Option<Struct>,
+    ) -> Result<ResultSet, Error> {
         let result_set = self
             .connection
-            .execute_sql(self.session, &self.selector, statement)
+            .execute_sql(
+                self.session,
+                &self.selector,
+                statement,
+                parameters.unwrap_or_default(),
+            )
             .await?;
 
         // TODO: this is brittle, if we forget to do this in some other method, then we risk not committing.
@@ -111,8 +133,12 @@ impl<'a> ReadContext for Tx<'a> {
 
 #[async_trait::async_trait]
 impl<'a> TransactionContext for Tx<'a> {
-    async fn execute_update(&mut self, statement: &str) -> Result<i64, Error> {
-        let result_set = self.execute_sql(statement).await?;
+    async fn execute_update(
+        &mut self,
+        statement: &str,
+        parameters: Option<Struct>,
+    ) -> Result<i64, Error> {
+        let result_set = self.execute_sql(statement, parameters).await?;
         result_set
             .stats
             .row_count

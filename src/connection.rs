@@ -1,9 +1,8 @@
-use std::collections::HashMap;
 use std::convert::TryInto;
 
 use crate::proto::google::spanner::v1 as proto;
 use crate::{
-    DatabaseId, Error, KeySet, ResultSet, Session, SpannerResource, Transaction,
+    DatabaseId, Error, KeySet, ResultSet, Session, SpannerResource, Struct, Transaction,
     TransactionSelector,
 };
 use async_trait::async_trait;
@@ -33,6 +32,7 @@ pub(crate) trait Connection: Clone {
         session: &Session,
         selector: &TransactionSelector,
         statement: &str,
+        parameters: Struct,
     ) -> Result<ResultSet, Error>;
 }
 
@@ -135,14 +135,20 @@ impl Connection for GrpcConnection {
         session: &Session,
         selector: &TransactionSelector,
         statement: &str,
+        parameters: Struct,
     ) -> Result<ResultSet, Error> {
         self.spanner
             .execute_sql(Request::new(ExecuteSqlRequest {
                 session: session.name().to_string(),
                 transaction: Some(selector.clone().into()),
                 sql: statement.to_string(),
-                params: None,                // TODO: statement parameters
-                param_types: HashMap::new(), // TODO: Struct for both values and types
+                params: Some(parameters.clone().try_into()?),
+                param_types: parameters
+                    .struct_type()
+                    .type_by_name()?
+                    .into_iter()
+                    .map(|(name, tpe)| (name, tpe.into()))
+                    .collect(),
                 resume_token: vec![],
                 query_mode: QueryMode::Normal as i32,
                 partition_token: vec![],

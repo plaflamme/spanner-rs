@@ -1,3 +1,4 @@
+use std::convert::TryFrom;
 use std::str::FromStr;
 
 use crate::proto::google::spanner::v1 as proto;
@@ -8,10 +9,16 @@ use prost::bytes::Bytes;
 use prost_types::value::Kind;
 use prost_types::{ListValue, Value as SpannerValue};
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct Struct(pub StructType, pub Vec<Value>);
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Struct(StructType, Vec<Value>);
 
 impl Struct {
+    pub fn struct_type(&self) -> &StructType {
+        &self.0
+    }
+    pub fn values(&self) -> &Vec<Value> {
+        &self.1
+    }
     pub(crate) fn try_from(tpe: &StructType, list_value: ListValue) -> Result<Self, crate::Error> {
         if tpe.0.len() != list_value.values.len() {
             Err(crate::Error::Codec(format!(
@@ -27,6 +34,29 @@ impl Struct {
                 .collect::<Result<Vec<Value>, crate::Error>>()
                 .map(|values| Struct(tpe.clone(), values))
         }
+    }
+}
+
+impl TryFrom<Struct> for prost_types::Struct {
+    type Error = crate::Error;
+    fn try_from(value: Struct) -> Result<Self, Self::Error> {
+        let field_names = value
+            .struct_type()
+            .fields()
+            .into_iter()
+            .map(|(name, _)| {
+                name.as_ref()
+                    .ok_or_else(|| Self::Error::Codec("missing field name".to_string()))
+            })
+            .collect::<Result<Vec<&String>, Self::Error>>()?;
+
+        let fields = field_names
+            .into_iter()
+            .zip(value.values().into_iter())
+            .map(|(name, value)| (name.clone(), prost_types::Value::from(value.clone())))
+            .collect();
+
+        Ok(prost_types::Struct { fields })
     }
 }
 

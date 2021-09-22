@@ -62,11 +62,15 @@ async fn test_read_only() -> Result<(), Error> {
     let client = new_client().await?;
     let mut read_only = client.read_only();
 
-    let result_set = read_only.execute_sql("SELECT * FROM my_table").await?;
+    let result_set = read_only
+        .execute_sql("SELECT * FROM my_table", None)
+        .await?;
     let row = result_set.iter().next();
     assert!(row.is_none());
 
-    let result_set = read_only.execute_sql("SELECT * FROM my_table").await?;
+    let result_set = read_only
+        .execute_sql("SELECT * FROM my_table", None)
+        .await?;
     let row = result_set.iter().next();
     assert!(row.is_none());
     Ok(())
@@ -77,14 +81,14 @@ async fn test_read_write() -> Result<(), Error> {
     let mut client = new_client().await?;
     let row_count = client
         .read_write()
-        .run(|ctx| ctx.execute_update("INSERT INTO my_table(a,b) VALUES(1,\"one\")"))
+        .run(|ctx| ctx.execute_update("INSERT INTO my_table(a,b) VALUES(1,\"one\")", None))
         .await?;
 
     assert_eq!(row_count, 1);
 
     let result_set = client
         .read_only()
-        .execute_sql("SELECT * FROM my_table")
+        .execute_sql("SELECT * FROM my_table", None)
         .await?;
     let row = result_set.iter().next();
     assert!(row.is_some());
