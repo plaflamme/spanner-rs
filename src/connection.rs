@@ -2,8 +2,8 @@ use std::convert::TryInto;
 
 use crate::proto::google::spanner::v1 as proto;
 use crate::{
-    DatabaseId, Error, KeySet, ResultSet, Session, SpannerResource, Struct, Transaction,
-    TransactionSelector,
+    DatabaseId, Error, KeySet, ResultSet, Session, SpannerResource, Transaction,
+    TransactionSelector, Value,
 };
 use async_trait::async_trait;
 use proto::{
@@ -32,7 +32,7 @@ pub(crate) trait Connection: Clone {
         session: &Session,
         selector: &TransactionSelector,
         statement: &str,
-        parameters: Struct,
+        parameters: Vec<(String, Value)>,
     ) -> Result<ResultSet, Error>;
 }
 
@@ -135,20 +135,28 @@ impl Connection for GrpcConnection {
         session: &Session,
         selector: &TransactionSelector,
         statement: &str,
-        parameters: Struct,
+        parameters: Vec<(String, Value)>,
     ) -> Result<ResultSet, Error> {
+        let params = Some(prost_types::Struct {
+            fields: parameters
+                .clone()
+                .into_iter()
+                .map(|(name, value)| (name, value.into()))
+                .collect(),
+        });
+        let param_types = parameters
+            .clone()
+            .into_iter()
+            .map(|(name, value)| (name, value.r#type().into()))
+            .collect();
+
         self.spanner
             .execute_sql(Request::new(ExecuteSqlRequest {
                 session: session.name().to_string(),
                 transaction: Some(selector.clone().into()),
                 sql: statement.to_string(),
-                params: Some(parameters.clone().try_into()?),
-                param_types: parameters
-                    .struct_type()
-                    .type_by_name()?
-                    .into_iter()
-                    .map(|(name, tpe)| (name, tpe.into()))
-                    .collect(),
+                params,
+                param_types,
                 resume_token: vec![],
                 query_mode: QueryMode::Normal as i32,
                 partition_token: vec![],

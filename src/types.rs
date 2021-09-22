@@ -1,6 +1,6 @@
 use crate::proto::google::spanner::v1 as proto;
 
-use std::{collections::HashMap, convert::TryFrom};
+use std::convert::TryFrom;
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct StructType(pub Vec<(Option<String>, Type)>);
@@ -8,17 +8,6 @@ pub struct StructType(pub Vec<(Option<String>, Type)>);
 impl StructType {
     pub fn fields(&self) -> &Vec<(Option<String>, Type)> {
         &self.0
-    }
-
-    pub(crate) fn type_by_name(&self) -> Result<HashMap<String, Type>, crate::Error> {
-        self.fields()
-            .iter()
-            .cloned()
-            .map(|(name, tpe)| match name {
-                Some(name) => Ok((name, tpe)),
-                None => Err(crate::Error::Client("unamed field in struct".to_string())),
-            })
-            .collect()
     }
 }
 

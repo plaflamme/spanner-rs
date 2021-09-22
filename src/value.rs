@@ -1,4 +1,3 @@
-use std::convert::TryFrom;
 use std::str::FromStr;
 
 use crate::proto::google::spanner::v1 as proto;
@@ -37,29 +36,6 @@ impl Struct {
     }
 }
 
-impl TryFrom<Struct> for prost_types::Struct {
-    type Error = crate::Error;
-    fn try_from(value: Struct) -> Result<Self, Self::Error> {
-        let field_names = value
-            .struct_type()
-            .fields()
-            .iter()
-            .map(|(name, _)| {
-                name.as_ref()
-                    .ok_or_else(|| Self::Error::Codec("missing field name".to_string()))
-            })
-            .collect::<Result<Vec<&String>, Self::Error>>()?;
-
-        let fields = field_names
-            .into_iter()
-            .zip(value.values().iter())
-            .map(|(name, value)| (name.clone(), prost_types::Value::from(value.clone())))
-            .collect();
-
-        Ok(prost_types::Struct { fields })
-    }
-}
-
 // https://github.com/googleapis/googleapis/blob/master/google/spanner/v1/type.proto
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
@@ -89,6 +65,20 @@ fn name_of(kind: Kind) -> &'static str {
 }
 
 impl Value {
+    pub fn r#type(&self) -> Type {
+        match self {
+            Value::Bool(_) => Type::Bool,
+            Value::Null(inner) => inner.clone(),
+            Value::Int64(_) => Type::Int64,
+            Value::Float64(_) => Type::Float64,
+            Value::String(_) => Type::String,
+            Value::Bytes(_) => Type::Bytes,
+            Value::Json(_) => Type::Json,
+            Value::Numeric(_) => Type::Numeric,
+            Value::Array(_values) => todo!(), // we lost type information for empty arrays
+            Value::Struct(Struct(struct_type, _)) => Type::Struct(struct_type.clone()),
+        }
+    }
     pub(crate) fn try_from(tpe: &Type, value: SpannerValue) -> Result<Self, crate::Error> {
         let kind = value
             .kind
