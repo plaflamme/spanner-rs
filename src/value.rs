@@ -43,7 +43,7 @@ impl TryFrom<Struct> for prost_types::Struct {
         let field_names = value
             .struct_type()
             .fields()
-            .into_iter()
+            .iter()
             .map(|(name, _)| {
                 name.as_ref()
                     .ok_or_else(|| Self::Error::Codec("missing field name".to_string()))
@@ -52,7 +52,7 @@ impl TryFrom<Struct> for prost_types::Struct {
 
         let fields = field_names
             .into_iter()
-            .zip(value.values().into_iter())
+            .zip(value.values().iter())
             .map(|(name, value)| (name.clone(), prost_types::Value::from(value.clone())))
             .collect();
 

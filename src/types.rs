@@ -157,7 +157,7 @@ impl From<&Type> for proto::Type {
                 array_element_type: None,
                 struct_type: Some(proto::StructType {
                     fields: fields
-                        .into_iter()
+                        .iter()
                         .map(|(name, tpe)| proto::struct_type::Field {
                             name: name.clone().unwrap_or_default(),
                             r#type: Some(tpe.into()),
