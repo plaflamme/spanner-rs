@@ -49,7 +49,7 @@ pub enum Value {
     Numeric(BigDecimal),
     // Timestamp,
     // Date,
-    Array(Vec<Value>),
+    Array(Type, Vec<Value>),
     Struct(Struct),
 }
 
@@ -75,7 +75,7 @@ impl Value {
             Value::Bytes(_) => Type::Bytes,
             Value::Json(_) => Type::Json,
             Value::Numeric(_) => Type::Numeric,
-            Value::Array(_values) => todo!(), // we lost type information for empty arrays
+            Value::Array(inner, _) => inner.clone(),
             Value::Struct(Struct(struct_type, _)) => Type::Struct(struct_type.clone()),
         }
     }
@@ -135,7 +135,7 @@ impl Value {
                         .into_iter()
                         .map(|v| Value::try_from(inner, v))
                         .collect::<Result<Vec<Value>, crate::Error>>()
-                        .map(Value::Array);
+                        .map(|values| Value::Array(inner.as_ref().clone(), values));
                 }
             }
             Type::Struct(struct_type) => {
@@ -176,7 +176,7 @@ impl From<i64> for Value {
 impl From<Value> for SpannerValue {
     fn from(value: Value) -> Self {
         let kind = match value {
-            Value::Array(values) => Kind::ListValue(ListValue {
+            Value::Array(_, values) => Kind::ListValue(ListValue {
                 values: values.into_iter().map(|v| v.into()).collect(),
             }),
             Value::Bool(b) => Kind::BoolValue(b),
@@ -232,7 +232,7 @@ mod test {
                     spanner_value(Kind::BoolValue(false)),
                 ],
             }),
-            Value::Array(vec![Value::Bool(true), Value::Bool(false)]),
+            Value::Array(Type::Bool, vec![Value::Bool(true), Value::Bool(false)]),
         );
         assert_nullable(Type::Array(Box::new(Type::Bool)));
         assert_invalid(Type::Array(Box::new(Type::Bool)), Kind::BoolValue(true));
