@@ -127,6 +127,42 @@ impl TryFrom<&proto::Type> for Type {
     }
 }
 
+impl From<&Type> for proto::Type {
+    fn from(value: &Type) -> Self {
+        match value {
+            Type::Array(inner) => proto::Type {
+                code: value.code() as i32,
+                array_element_type: Some(Box::new((*inner).as_ref().into())),
+                struct_type: None,
+            },
+            Type::Struct(StructType(fields)) => proto::Type {
+                code: value.code() as i32,
+                array_element_type: None,
+                struct_type: Some(proto::StructType {
+                    fields: fields
+                        .into_iter()
+                        .map(|(name, tpe)| proto::struct_type::Field {
+                            name: name.clone().unwrap_or_default(),
+                            r#type: Some(tpe.into()),
+                        })
+                        .collect(),
+                }),
+            },
+            other => proto::Type {
+                code: other.code() as i32,
+                array_element_type: None,
+                struct_type: None,
+            },
+        }
+    }
+}
+
+impl From<Type> for proto::Type {
+    fn from(value: Type) -> Self {
+        From::from(&value)
+    }
+}
+
 #[cfg(test)]
 mod test {
 
@@ -168,6 +204,7 @@ mod test {
 
     fn test_scalar(code: proto::TypeCode, expected: Type) {
         assert_eq!(Type::try_from(scalar_type(code)).unwrap(), expected);
+        assert_eq!(proto::Type::from(expected).code, code as i32)
     }
 
     #[test]
@@ -183,11 +220,20 @@ mod test {
         test_scalar(proto::TypeCode::Date, Type::Date);
     }
 
-    fn test_array_of_scalar(code: proto::TypeCode, expected: Type) {
+    fn test_array_of_scalar(code: proto::TypeCode, inner: Type) {
+        let expected = Type::Array(Box::new(inner.clone()));
         assert_eq!(
             Type::try_from(array_type(scalar_type(code))).unwrap(),
-            Type::Array(Box::new(expected))
+            expected.clone(),
         );
+        assert_eq!(
+            proto::Type::from(expected.clone()),
+            proto::Type {
+                code: proto::TypeCode::Array as i32,
+                array_element_type: Some(Box::new(inner.into())),
+                struct_type: None,
+            }
+        )
     }
 
     #[test]
@@ -251,6 +297,27 @@ mod test {
                 ("bool", Type::Bool),
                 ("struct", Type::strct(vec![("int64", Type::Int64)]))
             ]),
+        );
+
+        assert_eq!(
+            proto::Type::from(struct_type(vec![(
+                "bool",
+                scalar_type(proto::TypeCode::Bool)
+            )])),
+            proto::Type {
+                code: proto::TypeCode::Struct as i32,
+                array_element_type: None,
+                struct_type: Some(proto::StructType {
+                    fields: vec![proto::struct_type::Field {
+                        name: "bool".to_string(),
+                        r#type: Some(proto::Type {
+                            code: proto::TypeCode::Bool as i32,
+                            array_element_type: None,
+                            struct_type: None,
+                        })
+                    }]
+                })
+            }
         );
 
         let invalid = proto::Type {
