@@ -1,4 +1,5 @@
 use bb8::{Builder as PoolBuilder, Pool};
+use tonic::transport::ClientTlsConfig;
 
 use crate::{connection::GrpcConnection, Client, DatabaseId, Error, SessionManager};
 use derive_builder::Builder;
@@ -6,9 +7,17 @@ use derive_builder::Builder;
 #[derive(Builder, Debug)]
 #[builder(pattern = "owned")]
 pub struct Config {
-    #[builder(setter(into))]
-    endpoint: String,
+    /// Set the URI to use to reach the Spanner API. Leave unspecified to use Cloud Spanner.
+    #[builder(setter(strip_option, into), default)]
+    endpoint: Option<String>,
+
+    /// Set custom client-side TLS settings.
+    #[builder(setter(strip_option), default = "Some(ClientTlsConfig::default())")]
+    tls_config: Option<ClientTlsConfig>,
+
     database: DatabaseId,
+    #[builder(setter(into), default)]
+    credentials_file: Option<String>,
     #[builder(setter(strip_option), default)]
     session_pool_config: Option<SessionPoolConfig>,
 }
@@ -19,7 +28,17 @@ impl Config {
     }
 
     pub async fn connect(self) -> Result<Client, Error> {
-        let connection = GrpcConnection::connect(self.endpoint, self.database).await?;
+        let auth = if self.tls_config.is_none() {
+            None
+        } else {
+            match self.credentials_file {
+                Some(file) => Some(gcp_auth::from_credentials_file(file).await?),
+                None => Some(gcp_auth::init().await?),
+            }
+        };
+
+        let connection =
+            GrpcConnection::connect(self.endpoint, self.tls_config, auth, self.database).await?;
         let mgr = SessionManager::new(connection.clone());
         let pool = self
             .session_pool_config
@@ -33,6 +52,27 @@ impl Config {
 }
 
 impl ConfigBuilder {
+    /// Disable TLS when connecting to Spanner. This usually only makes sense when using the emulator.
+    /// Note that this also disables authentication.
+    pub fn disable_tls(self) -> Self {
+        Self {
+            tls_config: Some(None),
+            ..self
+        }
+    }
+
+    /// Configure the client to connect to a Spanner emulator, e.g.: `http://localhost:9092`
+    /// This disables TLS.
+    pub fn with_emulator_host(self, endpoint: String) -> Self {
+        self.endpoint(endpoint).disable_tls()
+    }
+
+    /// Configure the client to connect to a Spanner emulator running on localhost and using the specified port.
+    /// This disables TLS.
+    pub fn with_emulator_grpc_port(self, port: u16) -> Self {
+        self.with_emulator_host(format!("http://localhost:{}", port))
+    }
+
     pub async fn connect(self) -> Result<Client, Error> {
         self.build()?.connect().await
     }
@@ -84,8 +124,8 @@ mod test {
 
     #[test]
     fn test_config_endpoint() {
-        let cfg = Config::builder().endpoint("endpoint".to_string());
-        assert_eq!(cfg.endpoint, Some("endpoint".to_string()))
+        let cfg = Config::builder().endpoint("endpoint");
+        assert_eq!(cfg.endpoint, Some(Some("endpoint".to_string())))
     }
 
     #[test]

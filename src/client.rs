@@ -154,7 +154,7 @@ impl TxRunner {
         let session = self.session_pool.get().await?;
         let mut ctx = Tx {
             connection: self.connection.clone(),
-            session: session,
+            session,
             selector: TransactionSelector::Begin,
         };
         let result = (work)(&mut ctx).await;

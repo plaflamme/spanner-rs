@@ -9,6 +9,8 @@ pub enum Error {
     Config(String),
     #[error("codec error: {0}")]
     Codec(String),
+    #[error("authentication error: {0}")]
+    Auth(#[from] gcp_auth::Error),
 
     #[error("transport error: {0}")]
     TransportError(#[from] tonic::transport::Error),

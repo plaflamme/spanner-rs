@@ -32,7 +32,10 @@ impl<'a> DerefMut for ClientFixture<'a> {
 }
 
 #[ctor]
-static DOCKER: clients::Cli = clients::Cli::default();
+static DOCKER: clients::Cli = {
+    let _ = env_logger::builder().is_test(true).try_init();
+    clients::Cli::default()
+};
 
 async fn new_client<'a>() -> Result<ClientFixture<'a>, Error> {
     let instance_id = InstanceId::new("test-project", "test-instance");
@@ -48,7 +51,7 @@ async fn new_client<'a>() -> Result<ClientFixture<'a>, Error> {
         .await;
 
     let client = Client::config()
-        .endpoint(format!("http://localhost:{}", container.grpc_port()))
+        .with_emulator_grpc_port(container.grpc_port())
         .database(database_id)
         .connect()
         .await?;

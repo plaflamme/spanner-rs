@@ -10,6 +10,7 @@ pub(crate) use crate::transaction::*;
 pub use crate::types::*;
 pub use crate::value::*;
 
+mod auth;
 mod client;
 mod config;
 mod connection;

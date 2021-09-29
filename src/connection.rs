@@ -1,17 +1,20 @@
-use std::convert::TryInto;
-
+use crate::auth::AuthFilter;
 use crate::proto::google::spanner::v1 as proto;
 use crate::{
     DatabaseId, Error, KeySet, ResultSet, Session, SpannerResource, Transaction,
     TransactionSelector, Value,
 };
 use async_trait::async_trait;
+use gcp_auth::AuthenticationManager;
 use proto::{
     execute_sql_request::QueryMode, spanner_client::SpannerClient, CommitRequest,
     CreateSessionRequest, DeleteSessionRequest, ExecuteSqlRequest, ReadRequest, RollbackRequest,
 };
-use tonic::transport::Channel;
+use tonic::transport::{Channel, ClientTlsConfig};
 use tonic::Request;
+use tower::filter::{AsyncFilter, AsyncFilterLayer};
+use tower::util::Either;
+use tower::ServiceBuilder;
 
 #[async_trait]
 pub(crate) trait Connection: Clone {
@@ -39,15 +42,41 @@ pub(crate) trait Connection: Clone {
 #[derive(Clone)]
 pub(crate) struct GrpcConnection {
     database: DatabaseId,
-    spanner: SpannerClient<Channel>,
+    // TODO: abstract over Service
+    spanner: SpannerClient<Either<AsyncFilter<Channel, AuthFilter>, Channel>>,
 }
 
 impl GrpcConnection {
-    pub(crate) async fn connect(endpoint: String, database: DatabaseId) -> Result<Self, Error> {
-        let channel = Channel::from_shared(endpoint)
-            .map_err(|invalid_uri| Error::Config(format!("invalid endpoint: {}", invalid_uri)))?
-            .connect()
-            .await?;
+    pub(crate) async fn connect(
+        endpoint: Option<String>,
+        tls_config: Option<ClientTlsConfig>,
+        auth: Option<AuthenticationManager>,
+        database: DatabaseId,
+    ) -> Result<Self, Error> {
+        let channel = match endpoint {
+            None => Channel::from_static("https://spanner.googleapis.com")
+                .tls_config(tls_config.ok_or_else(|| Error::Config("TLS is required".into()))?)?,
+            Some(hostname) => {
+                let channel = Channel::from_shared(hostname).map_err(|invalid_uri| {
+                    Error::Config(format!("invalid endpoint: {}", invalid_uri))
+                })?;
+                if let Some(tls_config) = tls_config {
+                    channel.tls_config(tls_config)?
+                } else {
+                    channel
+                }
+            }
+        };
+
+        let channel = channel.connect().await?;
+
+        let auth_layer = auth.map(|auth| {
+            AsyncFilterLayer::new(AuthFilter::new(auth, crate::auth::Scopes::Database))
+        });
+
+        let channel = ServiceBuilder::new()
+            .option_layer(auth_layer)
+            .service(channel);
 
         Ok(Self {
             database,
