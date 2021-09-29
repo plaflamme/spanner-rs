@@ -1,7 +1,12 @@
 [package]
 name = "spanner-rs"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
+description = "Cloud Spanner Rust Client"
+license = "MIT"
+authors = ["Philippe Laflamme <philippe.laflamme@gmail.com>"]
+keywords = ["database", "spanner", "gcp", "sql", "async"]
+categories = ["database"]
 
 [dependencies]
 async-trait = "0.1"
