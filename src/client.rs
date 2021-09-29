@@ -97,9 +97,9 @@ pub trait TransactionContext: ReadContext {
         parameters: Vec<(String, Value)>,
     ) -> Result<i64, Error>;
 }
-struct Tx<'a> {
+pub struct Tx<'a> {
     connection: GrpcConnection,
-    session: &'a PooledConnection<'a, SessionManager>,
+    session: PooledConnection<'a, SessionManager>,
     selector: TransactionSelector,
 }
 
@@ -112,7 +112,7 @@ impl<'a> ReadContext for Tx<'a> {
     ) -> Result<ResultSet, Error> {
         let result_set = self
             .connection
-            .execute_sql(self.session, &self.selector, statement, parameters)
+            .execute_sql(&self.session, &self.selector, statement, parameters)
             .await?;
 
         // TODO: this is brittle, if we forget to do this in some other method, then we risk not committing.
@@ -147,17 +147,14 @@ pub struct TxRunner {
 }
 
 impl TxRunner {
-    pub async fn run<O, F>(&mut self, mut work: F) -> Result<O, Error>
+    pub async fn run<'b, O, F>(&'b mut self, mut work: F) -> Result<O, Error>
     where
-        F: for<'a> FnMut(
-            &'a mut dyn TransactionContext,
-        ) -> Pin<Box<dyn Future<Output = Result<O, Error>> + 'a>>,
-        F: Send,
+        F: for<'a> FnMut(&'a mut Tx<'b>) -> Pin<Box<dyn Future<Output = Result<O, Error>> + 'a>>,
     {
         let session = self.session_pool.get().await?;
         let mut ctx = Tx {
             connection: self.connection.clone(),
-            session: &session,
+            session: session,
             selector: TransactionSelector::Begin,
         };
         let result = (work)(&mut ctx).await;
@@ -165,7 +162,7 @@ impl TxRunner {
         match result {
             Ok(_) => {
                 if let TransactionSelector::Id(tx) = ctx.selector {
-                    self.connection.commit(&session, tx).await?;
+                    self.connection.commit(&ctx.session, tx).await?;
                 }
             }
             Err(Error::Status(status)) if status.code() == Code::Aborted => {
@@ -173,7 +170,7 @@ impl TxRunner {
             }
             Err(_) => {
                 if let TransactionSelector::Id(tx) = ctx.selector {
-                    self.connection.rollback(&session, tx).await?;
+                    self.connection.rollback(&ctx.session, tx).await?;
                 }
             }
         };

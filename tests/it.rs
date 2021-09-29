@@ -1,6 +1,8 @@
+#![feature(async_closure)]
+
 use std::ops::{Deref, DerefMut};
 
-use spanner_rs::{Client, DatabaseId, Error, InstanceId, ReadContext, Value};
+use spanner_rs::{Client, DatabaseId, Error, InstanceId, ReadContext, TransactionContext, Value};
 use testcontainers::{clients, Container, Docker};
 
 mod spanner_emulator;
@@ -82,13 +84,16 @@ async fn test_read_write() -> Result<(), Error> {
     let row_count = client
         .read_write()
         .run(|ctx| {
-            ctx.execute_update(
-                "INSERT INTO my_table(a,b) VALUES(@a, @b)",
-                vec![
-                    ("a".to_string(), Value::Int64(1)),
-                    ("b".to_string(), Value::String("one".to_string())),
-                ],
-            )
+            Box::pin(async move {
+                ctx.execute_update(
+                    "INSERT INTO my_table(a,b) VALUES(@a, @b)",
+                    vec![
+                        ("a".to_string(), Value::Int64(1)),
+                        ("b".to_string(), Value::String("one".to_string())),
+                    ],
+                )
+                .await
+            })
         })
         .await?;
 
