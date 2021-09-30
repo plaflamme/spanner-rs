@@ -1,7 +1,7 @@
 use bb8::{Builder as PoolBuilder, Pool};
 use tonic::transport::ClientTlsConfig;
 
-use crate::{connection::GrpcConnection, Client, DatabaseId, Error, SessionManager};
+use crate::{Client, DatabaseId, Error, SessionManager};
 use derive_builder::Builder;
 
 #[derive(Builder, Debug)]
@@ -38,7 +38,8 @@ impl Config {
         };
 
         let connection =
-            GrpcConnection::connect(self.endpoint, self.tls_config, auth, self.database).await?;
+            crate::connection::grpc::connect(self.endpoint, self.tls_config, auth, self.database)
+                .await?;
         let mgr = SessionManager::new(connection.clone());
         let pool = self
             .session_pool_config

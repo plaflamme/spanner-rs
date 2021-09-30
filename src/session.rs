@@ -2,7 +2,6 @@ use bb8::ManageConnection;
 use bb8::PooledConnection;
 use tokio::sync::Mutex;
 
-use crate::connection::GrpcConnection;
 use crate::proto::google::spanner::v1 as proto;
 use crate::Connection;
 use crate::Error;
@@ -21,11 +20,11 @@ impl From<proto::Session> for Session {
 }
 
 pub(crate) struct SessionManager {
-    connection: Mutex<GrpcConnection>,
+    connection: Mutex<Box<dyn Connection>>,
 }
 
 impl SessionManager {
-    pub(crate) fn new(connection: GrpcConnection) -> Self {
+    pub(crate) fn new(connection: Box<dyn Connection>) -> Self {
         Self {
             connection: Mutex::new(connection),
         }

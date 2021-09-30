@@ -4,13 +4,12 @@ use std::pin::Pin;
 use bb8::{Pool, PooledConnection};
 use tonic::Code;
 
-use crate::connection::GrpcConnection;
 use crate::result_set::ResultSet;
 use crate::{session::SessionManager, ConfigBuilder, Connection, Error, TransactionSelector};
 use crate::{TimestampBound, Value};
 
 pub struct Client {
-    connection: GrpcConnection,
+    connection: Box<dyn Connection>,
     session_pool: Pool<SessionManager>,
 }
 
@@ -21,7 +20,10 @@ impl Client {
 }
 
 impl Client {
-    pub(crate) fn connect(connection: GrpcConnection, session_pool: Pool<SessionManager>) -> Self {
+    pub(crate) fn connect(
+        connection: Box<dyn Connection>,
+        session_pool: Pool<SessionManager>,
+    ) -> Self {
         Self {
             connection,
             session_pool,
@@ -62,7 +64,7 @@ pub trait ReadContext {
 }
 
 struct ReadOnly {
-    connection: GrpcConnection,
+    connection: Box<dyn Connection>,
     bound: Option<TimestampBound>,
     session_pool: Pool<SessionManager>,
 }
@@ -99,7 +101,7 @@ pub trait TransactionContext: ReadContext {
 }
 
 pub struct Tx<'a> {
-    connection: GrpcConnection,
+    connection: Box<dyn Connection>,
     session: PooledConnection<'a, SessionManager>,
     selector: TransactionSelector,
 }
@@ -143,7 +145,7 @@ impl<'a> TransactionContext for Tx<'a> {
 }
 
 pub struct TxRunner {
-    connection: GrpcConnection,
+    connection: Box<dyn Connection>,
     session_pool: Pool<SessionManager>,
 }
 
