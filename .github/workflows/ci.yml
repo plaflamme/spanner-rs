@@ -3,22 +3,6 @@ on: [push]
 name: CI
 
 jobs:
-  check:
-    name: Check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          submodules: true
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - uses: Swatinem/rust-cache@v1
-      - uses: actions-rs/cargo@v1
-        with:
-          command: check
   test:
     name: Tests
     runs-on: ubuntu-latest
@@ -29,7 +13,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: nightly
           override: true
       - uses: Swatinem/rust-cache@v1
       - uses: actions-rs/cargo@v1
@@ -43,9 +27,9 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: nightly
           override: true
-      - run: rustup component add rustfmt
+          components: rustfmt
       - uses: Swatinem/rust-cache@v1
       - uses: actions-rs/cargo@v1
         with:
@@ -61,9 +45,9 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: nightly
           override: true
-      - run: rustup component add clippy
+          components: clippy
       - uses: Swatinem/rust-cache@v1
       - uses: actions-rs/cargo@v1
         with:
