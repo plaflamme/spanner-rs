@@ -1,8 +1,13 @@
 #![feature(async_closure)]
 
-use std::ops::{Deref, DerefMut};
+use std::{
+    ops::{Deref, DerefMut},
+    sync::atomic::{AtomicU16, Ordering},
+};
 
-use spanner_rs::{Client, DatabaseId, Error, InstanceId, ReadContext, TransactionContext, Value};
+use spanner_rs::{
+    Client, DatabaseId, Error, InstanceId, ReadContext, ResultSet, TransactionContext, Value,
+};
 use testcontainers::{clients, Container, Docker};
 
 mod spanner_emulator;
@@ -111,6 +116,45 @@ async fn test_read_write() -> Result<(), Error> {
     let row = row.unwrap();
     assert_eq!(row.try_get_by_name("a")?, Value::Int64(1));
     assert_eq!(row.try_get_by_name("b")?, Value::String("one".to_string()));
+
+    Ok(())
+}
+
+#[tokio::test]
+#[ignore]
+async fn test_read_write_abort() -> Result<(), Error> {
+    async fn write(evaluations: &AtomicU16) -> Result<ResultSet, Error> {
+        new_client()
+            .await?
+            .read_write()
+            .run(|ctx| {
+                evaluations.fetch_add(1, Ordering::SeqCst);
+                Box::pin(async move {
+                    let rs = ctx.execute_sql("SELECT * FROM my_table", vec![]).await?;
+                    let rows = rs.iter().count();
+                    ctx.execute_update(
+                        "INSERT INTO my_table(a,b) VALUES(@a, @b)",
+                        vec![
+                            ("a".to_string(), Value::Int64(rows as i64)),
+                            ("b".to_string(), Value::String(rows.to_string())),
+                        ],
+                    )
+                    .await?;
+                    ctx.execute_sql("SELECT * FROM my_table", vec![]).await
+                })
+            })
+            .await
+    }
+
+    let evaluations = AtomicU16::new(0);
+
+    let (one, two) = tokio::join!(write(&evaluations), write(&evaluations));
+
+    let diff = i32::abs(one?.iter().count() as i32 - two?.iter().count() as i32);
+    assert_eq!(diff, 1);
+
+    // we expect at least one retry
+    assert!(evaluations.load(Ordering::SeqCst) > 2);
 
     Ok(())
 }

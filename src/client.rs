@@ -97,6 +97,7 @@ pub trait TransactionContext: ReadContext {
         parameters: Vec<(String, Value)>,
     ) -> Result<i64, Error>;
 }
+
 pub struct Tx<'a> {
     connection: GrpcConnection,
     session: PooledConnection<'a, SessionManager>,
@@ -157,23 +158,26 @@ impl TxRunner {
             session,
             selector: TransactionSelector::Begin,
         };
-        let result = (work)(&mut ctx).await;
 
-        match result {
-            Ok(_) => {
-                if let TransactionSelector::Id(tx) = ctx.selector {
-                    self.connection.commit(&ctx.session, tx).await?;
+        loop {
+            ctx.selector = TransactionSelector::Begin;
+            let result = (work)(&mut ctx).await;
+
+            let commit_result = if let TransactionSelector::Id(tx) = ctx.selector {
+                if result.is_ok() {
+                    self.connection.commit(&ctx.session, tx).await
+                } else {
+                    self.connection.rollback(&ctx.session, tx).await
                 }
+            } else {
+                Ok(())
+            };
+
+            match commit_result {
+                Err(Error::Status(status)) if status.code() == Code::Aborted => continue,
+                Err(err) => break Err(err),
+                _ => break result,
             }
-            Err(Error::Status(status)) if status.code() == Code::Aborted => {
-                todo!("retry aborted transaction")
-            }
-            Err(_) => {
-                if let TransactionSelector::Id(tx) = ctx.selector {
-                    self.connection.rollback(&ctx.session, tx).await?;
-                }
-            }
-        };
-        result
+        }
     }
 }
