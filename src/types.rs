@@ -9,6 +9,13 @@ impl StructType {
     pub fn fields(&self) -> &Vec<(Option<String>, Type)> {
         &self.0
     }
+
+    pub fn field_index(&self, column_name: &str) -> Option<usize> {
+        self.0.iter().position(|(name, _)| match name {
+            Some(col) => *col == column_name,
+            None => false,
+        })
+    }
 }
 
 impl TryFrom<proto::StructType> for StructType {
@@ -333,5 +340,17 @@ mod test {
         };
 
         assert!(Type::try_from(invalid).is_err());
+    }
+
+    #[test]
+    fn test_column_index() {
+        let strct = StructType(vec![
+            (Some("foo".into()), Type::Bool),
+            (None, Type::Bool),
+            (Some("bar".into()), Type::Bool),
+        ]);
+        assert_eq!(strct.field_index("foo"), Some(0));
+        assert_eq!(strct.field_index("bar"), Some(2));
+        assert_eq!(strct.field_index("not present"), None);
     }
 }

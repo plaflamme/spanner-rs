@@ -26,13 +26,8 @@ impl Row {
 
     pub fn try_get_by_name(&self, column_name: &str) -> Result<Value, Error> {
         self.row_type
-            .0
-            .iter()
-            .position(|(name, _)| match name {
-                Some(n) => *n == column_name,
-                None => false,
-            })
-            .ok_or_else(|| Error::Codec("fudge".to_string()))
+            .field_index(column_name)
+            .ok_or_else(|| Error::Codec(format!("no such column: {}", column_name)))
             .and_then(|idx| self.try_get(idx))
     }
 }
