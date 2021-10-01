@@ -1,71 +1,18 @@
 #![feature(async_closure)]
 
-use std::{
-    ops::{Deref, DerefMut},
-    sync::atomic::{AtomicU16, Ordering},
-};
+use std::sync::atomic::{AtomicU16, Ordering};
 
-use spanner_rs::{
-    Client, DatabaseId, Error, InstanceId, ReadContext, ResultSet, TransactionContext, Value,
-};
-use testcontainers::{clients, Container, Docker};
+use spanner_rs::{Error, ReadContext, ResultSet, TransactionContext, Value};
 
+#[cfg(not(feature = "gcp"))]
 mod spanner_emulator;
+#[cfg(not(feature = "gcp"))]
+use spanner_emulator::new_client;
 
-use ctor::ctor;
-use spanner_emulator::{SpannerContainer, SpannerEmulator};
-
-// Holds on to Container so it is dropped with Client.
-// This is necessary to keep the container running for the duration of the test.
-struct ClientFixture<'a> {
-    _container: Container<'a, clients::Cli, SpannerEmulator>,
-    client: Client,
-}
-
-impl<'a> Deref for ClientFixture<'a> {
-    type Target = Client;
-
-    fn deref(&self) -> &Self::Target {
-        &self.client
-    }
-}
-
-impl<'a> DerefMut for ClientFixture<'a> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.client
-    }
-}
-
-#[ctor]
-static DOCKER: clients::Cli = {
-    let _ = env_logger::builder().is_test(true).try_init();
-    clients::Cli::default()
-};
-
-async fn new_client<'a>() -> Result<ClientFixture<'a>, Error> {
-    let instance_id = InstanceId::new("test-project", "test-instance");
-    let database_id = DatabaseId::new(instance_id.clone(), "test-database");
-    let container = DOCKER.run(SpannerEmulator);
-    container
-        .with_instance(&instance_id)
-        .await
-        .with_database(
-            &database_id,
-            vec!["CREATE TABLE my_table(a INT64, b STRING(MAX)) PRIMARY KEY(a)"],
-        )
-        .await;
-
-    let client = Client::config()
-        .with_emulator_grpc_port(container.grpc_port())
-        .database(database_id)
-        .connect()
-        .await?;
-
-    Ok(ClientFixture {
-        _container: container,
-        client,
-    })
-}
+#[cfg(feature = "gcp")]
+mod gcp;
+#[cfg(feature = "gcp")]
+use gcp::new_client;
 
 #[tokio::test]
 async fn test_read_only() -> Result<(), Error> {
@@ -121,7 +68,7 @@ async fn test_read_write() -> Result<(), Error> {
 }
 
 #[tokio::test]
-#[ignore]
+#[cfg_attr(not(feature = "gcp"), ignore)]
 async fn test_read_write_abort() -> Result<(), Error> {
     async fn write(evaluations: &AtomicU16) -> Result<ResultSet, Error> {
         new_client()

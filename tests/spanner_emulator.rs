@@ -1,8 +1,12 @@
 use async_trait::async_trait;
-use spanner_rs::{DatabaseId, InstanceId, SpannerResource};
+use spanner_rs::{Client, DatabaseId, Error, InstanceId, SpannerResource};
 
-use std::collections::HashMap;
-use testcontainers::{Container, Docker, Image, WaitForMessage};
+use ctor::ctor;
+use std::{
+    collections::HashMap,
+    ops::{Deref, DerefMut},
+};
+use testcontainers::{clients, Container, Docker, Image, WaitForMessage};
 
 #[derive(Default, Debug, Clone)]
 pub struct SpannerEmulator;
@@ -102,4 +106,58 @@ impl<'a, D: Docker> SpannerContainer for Container<'a, D, SpannerEmulator> {
     fn grpc_port(&self) -> u16 {
         self.get_host_port(9010).unwrap()
     }
+}
+
+// Holds on to Container so it is dropped with Client.
+// This is necessary to keep the container running for the duration of the test.
+pub(crate) struct ClientFixture<'a> {
+    _container: Container<'a, clients::Cli, SpannerEmulator>,
+    client: Client,
+}
+
+impl<'a> Deref for ClientFixture<'a> {
+    type Target = Client;
+
+    fn deref(&self) -> &Self::Target {
+        &self.client
+    }
+}
+
+impl<'a> DerefMut for ClientFixture<'a> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.client
+    }
+}
+
+#[ctor]
+static DOCKER: clients::Cli = {
+    let _ = env_logger::builder().is_test(true).try_init();
+    clients::Cli::default()
+};
+
+#[allow(dead_code)]
+pub(crate) async fn new_client<'a>() -> Result<ClientFixture<'a>, Error> {
+    let _ = env_logger::builder().is_test(true).try_init();
+    let instance_id = InstanceId::new("test-project", "test-instance");
+    let database_id = DatabaseId::new(instance_id.clone(), "test-database");
+    let container = DOCKER.run(SpannerEmulator);
+    container
+        .with_instance(&instance_id)
+        .await
+        .with_database(
+            &database_id,
+            vec!["CREATE TABLE my_table(a INT64, b STRING(MAX)) PRIMARY KEY(a)"],
+        )
+        .await;
+
+    let client = Client::config()
+        .with_emulator_grpc_port(container.grpc_port())
+        .database(database_id)
+        .connect()
+        .await?;
+
+    Ok(ClientFixture {
+        _container: container,
+        client,
+    })
 }
