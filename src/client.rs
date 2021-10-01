@@ -136,8 +136,7 @@ impl<'a> TransactionContext for Tx<'a> {
         statement: &str,
         parameters: Vec<(String, Value)>,
     ) -> Result<i64, Error> {
-        let result_set = self.execute_sql(statement, parameters).await?;
-        result_set
+        self.execute_sql(statement, parameters).await?
             .stats
             .row_count
             .ok_or_else(|| Error::Client("no row count available. This may be the result of using execute_update on a statement that did not contain DML.".to_string()))
