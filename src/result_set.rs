@@ -1,30 +1,36 @@
 use std::convert::TryFrom;
 use std::convert::TryInto;
 
-use prost_types::ListValue;
-
 use crate::proto::google::spanner::v1 as proto;
 use crate::Error;
+use crate::FromSpanner;
 use crate::StructType;
 use crate::Transaction;
 use crate::Value;
 
-pub struct Row {
+pub struct Row<'a> {
     row_type: StructType,
-    columns: ListValue,
+    columns: &'a Vec<Value>,
 }
 
-impl Row {
-    pub fn try_get(&self, column: usize) -> Result<Value, Error> {
+impl<'a> Row<'a> {
+    pub fn try_get<T>(&'a self, column: usize) -> Result<T, Error>
+    where
+        T: FromSpanner<'a>,
+    {
         match self.row_type.0.get(column) {
-            None => Err(Error::Codec("fudge".to_string())),
+            None => Err(Error::Codec(format!("no such column {}", column))),
             Some((_, tpe)) => {
-                Value::try_from(tpe, self.columns.values.get(column).unwrap().clone())
+                let value = self.columns.get(column).unwrap();
+                <T as FromSpanner>::from_spanner_nullable(tpe, value)
             }
         }
     }
 
-    pub fn try_get_by_name(&self, column_name: &str) -> Result<Value, Error> {
+    pub fn try_get_by_name<T>(&'a self, column_name: &str) -> Result<T, Error>
+    where
+        T: FromSpanner<'a>,
+    {
         self.row_type
             .field_index(column_name)
             .ok_or_else(|| Error::Codec(format!("no such column: {}", column_name)))
@@ -55,16 +61,16 @@ impl TryFrom<proto::ResultSetStats> for Stats {
 #[derive(Debug)]
 pub struct ResultSet {
     row_type: StructType,
-    rows: Vec<ListValue>,
+    rows: Vec<Vec<Value>>,
     pub(crate) transaction: Option<Transaction>,
     pub(crate) stats: Stats,
 }
 
 impl ResultSet {
-    pub fn iter(self) -> impl Iterator<Item = Row> {
+    pub fn iter<'a>(&'a self) -> impl Iterator<Item = Row<'a>> {
         let row_type = self.row_type.clone();
 
-        self.rows.into_iter().map(move |columns| Row {
+        self.rows.iter().map(move |columns| Row {
             row_type: row_type.clone(),
             columns,
         })
@@ -84,9 +90,21 @@ impl TryFrom<proto::ResultSet> for ResultSet {
             .ok_or_else(|| Self::Error::Codec("missing row type metadata".to_string()))
             .and_then(StructType::try_from)?;
 
+        let rows = value
+            .rows
+            .iter()
+            .map(|row| {
+                row.values
+                    .iter()
+                    .zip(row_type.types())
+                    .map(|(value, tpe)| Value::try_from(tpe, value.clone()))
+                    .collect()
+            })
+            .collect::<Result<Vec<Vec<Value>>, Error>>()?;
+
         Ok(Self {
             row_type,
-            rows: value.rows,
+            rows,
             transaction: metadata.transaction.map(Transaction::from),
             stats: value.stats.unwrap_or_default().try_into()?,
         })

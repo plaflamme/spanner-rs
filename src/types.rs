@@ -10,6 +10,10 @@ impl StructType {
         &self.0
     }
 
+    pub fn types(&self) -> impl Iterator<Item = &Type> {
+        self.0.iter().map(|(_, tpe)| tpe)
+    }
+
     pub fn field_index(&self, column_name: &str) -> Option<usize> {
         self.0.iter().position(|(name, _)| match name {
             Some(col) => *col == column_name,

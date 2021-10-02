@@ -55,8 +55,8 @@ async fn test_read_write() -> Result<(), Error> {
     let row = result_set.iter().next();
     assert!(row.is_some());
     let row = row.unwrap();
-    assert_eq!(row.try_get_by_name("a")?, Value::Int64(1));
-    assert_eq!(row.try_get_by_name("b")?, Value::String("one".to_string()));
+    assert_eq!(row.try_get_by_name::<i32>("a")?, 1);
+    assert_eq!(row.try_get_by_name::<&str>("b")?, "one");
 
     Ok(())
 }
