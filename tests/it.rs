@@ -24,12 +24,6 @@ async fn test_read_only() -> Result<(), Error> {
         .await?;
     let row = result_set.iter().next();
     assert!(row.is_none());
-
-    let result_set = read_only
-        .execute_sql("SELECT * FROM my_table", vec![])
-        .await?;
-    let row = result_set.iter().next();
-    assert!(row.is_none());
     Ok(())
 }
 
