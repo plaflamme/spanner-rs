@@ -67,7 +67,7 @@ pub struct ResultSet {
 }
 
 impl ResultSet {
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = Row<'a>> {
+    pub fn iter(&self) -> impl Iterator<Item = Row<'_>> {
         let row_type = self.row_type.clone();
 
         self.rows.iter().map(move |columns| Row {
