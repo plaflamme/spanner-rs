@@ -99,3 +99,45 @@ async fn test_read_write_abort() -> Result<(), Error> {
 
     Ok(())
 }
+
+#[tokio::test]
+async fn test_read_write_rollback() -> Result<(), Error> {
+    let rollback = new_client()
+        .await?
+        .read_write()
+        .run(|tx| {
+            Box::pin(async move {
+                tx.execute_update(
+                    "INSERT INTO my_table(a,b) VALUES (@a,@b)",
+                    vec![
+                        ("a".to_string(), Value::Int64(42)),
+                        (
+                            "b".to_string(),
+                            Value::String("life, the universe and everything".to_string()),
+                        ),
+                    ],
+                )
+                .await?;
+
+                let result: Result<(), Error> = Err(Error::Client("oops".to_string()));
+                result
+            })
+        })
+        .await;
+
+    assert!(rollback.is_err());
+    match rollback.err() {
+        Some(Error::Client(err)) => assert_eq!(err, "oops".to_string()),
+        err => panic!("unexpected error: {:?}", err),
+    }
+
+    let rs = new_client()
+        .await?
+        .read_only()
+        .execute_sql("SELECT * FROM my_table WHERE a = 42", vec![])
+        .await?;
+
+    assert!(rs.iter().next().is_none());
+
+    Ok(())
+}
