@@ -1,3 +1,5 @@
+use bigdecimal::BigDecimal;
+
 use crate::{Error, Type, Value};
 
 pub trait FromSpanner<'a>: Sized {
@@ -72,6 +74,24 @@ impl<'a> FromSpanner<'a> for &'a str {
     }
 }
 
+impl<'a> FromSpanner<'a> for &'a BigDecimal {
+    fn from_spanner(tpe: &'a Type, value: &'a Value) -> Result<Self, Error> {
+        match value {
+            Value::Numeric(v) => Ok(v),
+            _ => wrong_type!(String, tpe),
+        }
+    }
+}
+
+impl<'a> FromSpanner<'a> for BigDecimal {
+    fn from_spanner(tpe: &'a Type, value: &'a Value) -> Result<Self, Error> {
+        match value {
+            Value::Numeric(v) => Ok(v.clone()),
+            _ => wrong_type!(String, tpe),
+        }
+    }
+}
+
 macro_rules! simple_from {
     ($t:ty, $f:ident) => {
         impl<'a> FromSpanner<'a> for $t {
@@ -101,6 +121,7 @@ simple_from!(f64, Float64);
 mod test {
     use super::*;
     use crate::{Type, Value};
+    use bigdecimal::{BigDecimal, FromPrimitive};
 
     macro_rules! from_spanner_ok {
         ($t:ty, $ok_tpe:ident, $($ok_val:expr),+) => {
@@ -196,6 +217,21 @@ mod test {
         from_spanner_err!(f64, String, "this is not a bool".to_string());
         from_spanner_non_nullable!(f64, Float64);
         from_spanner_nullable!(f64, Float64);
+    }
+
+    #[test]
+    fn test_from_spanner_numeric() {
+        from_spanner_ok!(
+            BigDecimal,
+            Numeric,
+            BigDecimal::from_i128(0).unwrap(),
+            BigDecimal::from_i128(42).unwrap()
+        );
+        from_spanner_err!(BigDecimal, Float64, 0.0);
+        from_spanner_err!(BigDecimal, Int64, 0);
+        from_spanner_err!(BigDecimal, String, "this is not a bool".to_string());
+        from_spanner_non_nullable!(BigDecimal, Numeric);
+        from_spanner_nullable!(BigDecimal, Numeric);
     }
 
     #[test]
