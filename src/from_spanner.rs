@@ -39,6 +39,21 @@ macro_rules! wrong_type {
     };
 }
 
+impl<'a, T> FromSpanner<'a> for Vec<T>
+where
+    T: FromSpanner<'a>,
+{
+    fn from_spanner(tpe: &'a Type, value: &'a Value) -> Result<Self, Error> {
+        match value {
+            Value::Array(tpe, values) => values
+                .iter()
+                .map(|value| <T as FromSpanner>::from_spanner_nullable(tpe, value))
+                .collect(),
+            _ => wrong_type!(String, tpe),
+        }
+    }
+}
+
 impl<'a> FromSpanner<'a> for String {
     fn from_spanner(tpe: &'a Type, value: &'a Value) -> Result<Self, Error> {
         match value {
@@ -162,6 +177,45 @@ mod test {
         from_spanner_err!(bool, String, "this is not a bool".to_string());
         from_spanner_non_nullable!(bool, Bool);
         from_spanner_nullable!(bool, Bool);
+    }
+
+    #[test]
+    fn test_from_spanner_array() {
+        let bool_array = Type::Array(Box::new(Type::Bool));
+        let value = Value::Array(Type::Bool, vec![Value::Bool(true), Value::Bool(false)]);
+
+        let result = <Vec<bool> as FromSpanner>::from_spanner_nullable(&bool_array, &value);
+        assert_eq!(result.ok(), Some(vec![true, false]));
+        let result = <Vec<bool> as FromSpanner>::from_spanner_nullable(
+            &bool_array,
+            &Value::Array(Type::Bool, vec![]),
+        );
+        assert_eq!(result.ok(), Some(vec![]));
+
+        let result = <Vec<bool> as FromSpanner>::from_spanner_nullable(
+            &Type::Array(Box::new(Type::Bool)),
+            &Value::Null(bool_array.clone()),
+        );
+        assert!(result.is_err());
+        let result = <Option<Vec<bool>> as FromSpanner>::from_spanner_nullable(
+            &Type::Array(Box::new(Type::Bool)),
+            &Value::Null(bool_array.clone()),
+        );
+        assert_eq!(result.ok(), Some(None));
+
+        let result = <Vec<Option<bool>> as FromSpanner>::from_spanner_nullable(
+            &Type::Array(Box::new(Type::Bool)),
+            &Value::Array(
+                Type::Bool,
+                vec![
+                    Value::Bool(true),
+                    Value::Null(bool_array),
+                    Value::Bool(false),
+                ],
+            ),
+        )
+        .unwrap();
+        assert_eq!(result, vec![Some(true), None, Some(false)]);
     }
 
     #[test]
