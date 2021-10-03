@@ -2,7 +2,7 @@
 
 use std::sync::atomic::{AtomicU16, Ordering};
 
-use spanner_rs::{Error, ReadContext, ResultSet, TransactionContext, Value};
+use spanner_rs::{Error, ReadContext, ResultSet, TransactionContext};
 
 #[cfg(not(feature = "gcp"))]
 mod spanner_emulator;
@@ -19,9 +19,7 @@ async fn test_read_only() -> Result<(), Error> {
     let client = new_client().await?;
     let mut read_only = client.read_only();
 
-    let result_set = read_only
-        .execute_sql("SELECT * FROM my_table", vec![])
-        .await?;
+    let result_set = read_only.execute_sql("SELECT * FROM my_table", &[]).await?;
     let row = result_set.iter().next();
     assert!(row.is_none());
     Ok(())
@@ -36,10 +34,7 @@ async fn test_read_write() -> Result<(), Error> {
             Box::pin(async move {
                 ctx.execute_update(
                     "INSERT INTO my_table(a,b) VALUES(@a, @b)",
-                    vec![
-                        ("a".to_string(), Value::Int64(1)),
-                        ("b".to_string(), Value::String("one".to_string())),
-                    ],
+                    &[("a", &1), ("b", &"one")],
                 )
                 .await
             })
@@ -50,7 +45,7 @@ async fn test_read_write() -> Result<(), Error> {
 
     let result_set = client
         .read_only()
-        .execute_sql("SELECT * FROM my_table", vec![])
+        .execute_sql("SELECT * FROM my_table", &[])
         .await?;
     let row = result_set.iter().next();
     assert!(row.is_some());
@@ -71,17 +66,14 @@ async fn test_read_write_abort() -> Result<(), Error> {
             .run(|ctx| {
                 evaluations.fetch_add(1, Ordering::SeqCst);
                 Box::pin(async move {
-                    let rs = ctx.execute_sql("SELECT * FROM my_table", vec![]).await?;
+                    let rs = ctx.execute_sql("SELECT * FROM my_table", &[]).await?;
                     let rows = rs.iter().count();
                     ctx.execute_update(
                         "INSERT INTO my_table(a,b) VALUES(@a, @b)",
-                        vec![
-                            ("a".to_string(), Value::Int64(rows as i64)),
-                            ("b".to_string(), Value::String(rows.to_string())),
-                        ],
+                        &[("a", &(rows as u32)), ("b", &rows.to_string())],
                     )
                     .await?;
-                    ctx.execute_sql("SELECT * FROM my_table", vec![]).await
+                    ctx.execute_sql("SELECT * FROM my_table", &[]).await
                 })
             })
             .await
@@ -109,13 +101,7 @@ async fn test_read_write_rollback() -> Result<(), Error> {
             Box::pin(async move {
                 tx.execute_update(
                     "INSERT INTO my_table(a,b) VALUES (@a,@b)",
-                    vec![
-                        ("a".to_string(), Value::Int64(42)),
-                        (
-                            "b".to_string(),
-                            Value::String("life, the universe and everything".to_string()),
-                        ),
-                    ],
+                    &[("a", &42), ("b", &"life, the universe and everything")],
                 )
                 .await?;
 
@@ -134,7 +120,7 @@ async fn test_read_write_rollback() -> Result<(), Error> {
     let rs = new_client()
         .await?
         .read_only()
-        .execute_sql("SELECT * FROM my_table WHERE a = 42", vec![])
+        .execute_sql("SELECT * FROM my_table WHERE a = 42", &[])
         .await?;
 
     assert!(rs.iter().next().is_none());

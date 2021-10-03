@@ -1,4 +1,4 @@
-use crate::{Error, KeySet, ResultSet, Session, Transaction, TransactionSelector, Value};
+use crate::{Error, KeySet, ResultSet, Session, ToSpanner, Transaction, TransactionSelector};
 use async_trait::async_trait;
 use dyn_clone::DynClone;
 
@@ -24,7 +24,7 @@ where
         session: &Session,
         selector: &TransactionSelector,
         statement: &str,
-        parameters: Vec<(String, Value)>,
+        parameters: &[(&str, &(dyn ToSpanner + Sync))],
     ) -> Result<ResultSet, Error>;
 }
 

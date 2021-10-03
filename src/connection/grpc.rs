@@ -2,8 +2,8 @@ use super::Connection;
 use crate::auth::AuthFilter;
 use crate::proto::google::spanner::v1 as proto;
 use crate::{
-    DatabaseId, Error, KeySet, ResultSet, Session, SpannerResource, Transaction,
-    TransactionSelector, Value,
+    DatabaseId, Error, KeySet, ResultSet, Session, SpannerResource, ToSpanner, Transaction,
+    TransactionSelector,
 };
 use async_trait::async_trait;
 use gcp_auth::AuthenticationManager;
@@ -139,27 +139,23 @@ impl Connection for GrpcConnection {
         session: &Session,
         selector: &TransactionSelector,
         statement: &str,
-        parameters: Vec<(String, Value)>,
+        parameters: &[(&str, &(dyn ToSpanner + Sync))],
     ) -> Result<ResultSet, Error> {
-        let params = Some(prost_types::Struct {
-            fields: parameters
-                .clone()
-                .into_iter()
-                .map(|(name, value)| (name, value.into()))
-                .collect(),
-        });
-        let param_types = parameters
-            .clone()
-            .into_iter()
-            .map(|(name, value)| (name, value.r#type().into()))
-            .collect();
+        let mut params = std::collections::BTreeMap::new();
+        let mut param_types = std::collections::HashMap::new();
+
+        for (name, value) in parameters {
+            let value = value.to_spanner()?;
+            param_types.insert(name.to_string(), value.r#type().into());
+            params.insert(name.to_string(), value.into());
+        }
 
         self.spanner
             .execute_sql(Request::new(ExecuteSqlRequest {
                 session: session.name().to_string(),
                 transaction: Some(selector.clone().into()),
                 sql: statement.to_string(),
-                params,
+                params: Some(prost_types::Struct { fields: params }),
                 param_types,
                 resume_token: vec![],
                 query_mode: QueryMode::Normal as i32,

@@ -5,8 +5,9 @@ use bb8::{Pool, PooledConnection};
 use tonic::Code;
 
 use crate::result_set::ResultSet;
+use crate::TimestampBound;
+use crate::ToSpanner;
 use crate::{session::SessionManager, ConfigBuilder, Connection, Error, TransactionSelector};
-use crate::{TimestampBound, Value};
 
 pub struct Client {
     connection: Box<dyn Connection>,
@@ -59,7 +60,7 @@ pub trait ReadContext {
     async fn execute_sql(
         &mut self,
         statement: &str,
-        parameters: Vec<(String, Value)>,
+        parameters: &[(&str, &(dyn ToSpanner + Sync))],
     ) -> Result<ResultSet, Error>;
 }
 
@@ -74,7 +75,7 @@ impl ReadContext for ReadOnly {
     async fn execute_sql(
         &mut self,
         statement: &str,
-        parameters: Vec<(String, Value)>,
+        parameters: &[(&str, &(dyn ToSpanner + Sync))],
     ) -> Result<ResultSet, Error> {
         let session = self.session_pool.get().await?;
         let result = self
@@ -96,7 +97,7 @@ pub trait TransactionContext: ReadContext {
     async fn execute_update(
         &mut self,
         statement: &str,
-        parameters: Vec<(String, Value)>,
+        parameters: &[(&str, &(dyn ToSpanner + Sync))],
     ) -> Result<i64, Error>;
 }
 
@@ -111,7 +112,7 @@ impl<'a> ReadContext for Tx<'a> {
     async fn execute_sql(
         &mut self,
         statement: &str,
-        parameters: Vec<(String, Value)>,
+        parameters: &[(&str, &(dyn ToSpanner + Sync))],
     ) -> Result<ResultSet, Error> {
         let result_set = self
             .connection
@@ -134,7 +135,7 @@ impl<'a> TransactionContext for Tx<'a> {
     async fn execute_update(
         &mut self,
         statement: &str,
-        parameters: Vec<(String, Value)>,
+        parameters: &[(&str, &(dyn ToSpanner + Sync))],
     ) -> Result<i64, Error> {
         self.execute_sql(statement, parameters).await?
             .stats
