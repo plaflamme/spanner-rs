@@ -1,4 +1,5 @@
 use bigdecimal::BigDecimal;
+use prost::bytes::Bytes;
 
 use crate::{Error, Type, Value};
 
@@ -74,48 +75,49 @@ impl<'a> FromSpanner<'a> for &'a str {
     }
 }
 
-impl<'a> FromSpanner<'a> for &'a BigDecimal {
-    fn from_spanner(tpe: &'a Type, value: &'a Value) -> Result<Self, Error> {
-        match value {
-            Value::Numeric(v) => Ok(v),
-            _ => wrong_type!(String, tpe),
-        }
-    }
-}
-
-impl<'a> FromSpanner<'a> for BigDecimal {
-    fn from_spanner(tpe: &'a Type, value: &'a Value) -> Result<Self, Error> {
-        match value {
-            Value::Numeric(v) => Ok(v.clone()),
-            _ => wrong_type!(String, tpe),
-        }
-    }
-}
-
-macro_rules! simple_from {
-    ($t:ty, $f:ident) => {
+macro_rules! simple {
+    ($t:ty, $f:ident, $capture:ident, $from:expr) => {
         impl<'a> FromSpanner<'a> for $t {
             fn from_spanner(tpe: &'a Type, value: &'a Value) -> Result<$t, Error> {
                 match value {
-                    Value::$f(v) => {
-                        <$t>::try_from(*v).map_err(|err| Error::Codec(format!("{}", err)))
-                    }
+                    Value::$f($capture) => $from,
                     _ => wrong_type!($f, tpe),
                 }
             }
         }
     };
+    ($t:ty, $f:ident, move) => {
+        simple!($t, $f, v, Ok(v));
+    };
+    ($t:ty, $f:ident, copy) => {
+        simple!($t, $f, v, Ok(*v));
+    };
+    ($t:ty, $f:ident, clone) => {
+        simple!($t, $f, v, Ok(v.clone()));
+    };
+    ($t:ty, $f:ident, try_from) => {
+        simple!(
+            $t,
+            $f,
+            v,
+            <$t>::try_from(*v).map_err(|err| Error::Codec(format!("{}", err)))
+        );
+    };
 }
 
-simple_from!(i8, Int64);
-simple_from!(u8, Int64);
-simple_from!(i16, Int64);
-simple_from!(u16, Int64);
-simple_from!(i32, Int64);
-simple_from!(u32, Int64);
-simple_from!(i64, Int64);
-simple_from!(bool, Bool);
-simple_from!(f64, Float64);
+simple!(i8, Int64, try_from);
+simple!(u8, Int64, try_from);
+simple!(i16, Int64, try_from);
+simple!(u16, Int64, try_from);
+simple!(i32, Int64, try_from);
+simple!(u32, Int64, try_from);
+simple!(i64, Int64, copy);
+simple!(f64, Float64, copy);
+simple!(bool, Bool, copy);
+simple!(BigDecimal, Numeric, clone);
+simple!(&'a BigDecimal, Numeric, move);
+simple!(Bytes, Bytes, clone);
+simple!(&'a Bytes, Bytes, move);
 
 #[cfg(test)]
 mod test {
@@ -199,6 +201,20 @@ mod test {
         from_spanner_err!(bool, String, "this is not a bool".to_string());
         from_spanner_non_nullable!(bool, Bool);
         from_spanner_nullable!(bool, Bool);
+    }
+
+    #[test]
+    fn test_from_spanner_bytes() {
+        from_spanner_ok!(
+            Bytes,
+            Bytes,
+            Bytes::from_static(&[1, 2, 3, 4]),
+            Bytes::from_static(&[])
+        );
+        from_spanner_err!(Bytes, Float64, 0.0);
+        from_spanner_err!(Bytes, Int64, 0);
+        from_spanner_non_nullable!(Bytes, Bytes);
+        from_spanner_nullable!(Bytes, Bytes);
     }
 
     #[test]
