@@ -95,6 +95,7 @@ simple_from!(i32, Int64);
 simple_from!(u32, Int64);
 simple_from!(i64, Int64);
 simple_from!(bool, Bool);
+simple_from!(f64, Float64);
 
 #[cfg(test)]
 mod test {
@@ -177,6 +178,24 @@ mod test {
         from_spanner_err!(bool, String, "this is not a bool".to_string());
         from_spanner_non_nullable!(bool, Bool);
         from_spanner_nullable!(bool, Bool);
+    }
+
+    #[test]
+    fn test_from_spanner_float64() {
+        from_spanner_ok!(
+            f64,
+            Float64,
+            f64::MIN,
+            f64::MAX,
+            // f64::NAN, Works, but assert_eq fails
+            f64::NEG_INFINITY,
+            0.0
+        );
+        from_spanner_err!(f64, Bool, true);
+        from_spanner_err!(f64, Int64, 0);
+        from_spanner_err!(f64, String, "this is not a bool".to_string());
+        from_spanner_non_nullable!(f64, Float64);
+        from_spanner_nullable!(f64, Float64);
     }
 
     #[test]
