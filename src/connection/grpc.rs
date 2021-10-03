@@ -145,7 +145,7 @@ impl Connection for GrpcConnection {
         let mut param_types = std::collections::HashMap::new();
 
         for (name, value) in parameters {
-            let value = value.to_spanner()?;
+            let value = value.to_spanner(&crate::Type::Bool)?; // TODO: this needs to come from the statement
             param_types.insert(name.to_string(), value.r#type().into());
             params.insert(name.to_string(), value.into());
         }

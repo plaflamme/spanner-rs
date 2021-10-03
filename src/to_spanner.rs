@@ -1,31 +1,44 @@
-use crate::{Error, Value};
+use crate::{Error, Type, Value};
 
 pub trait ToSpanner {
-    fn to_spanner(&self) -> Result<Value, Error>;
+    fn to_spanner(&self, tpe: &Type) -> Result<Value, Error>;
 }
 
-impl ToSpanner for u8 {
-    fn to_spanner(&self) -> Result<Value, Error> {
-        Ok(Value::Int64(i64::from(*self)))
+macro_rules! simple_to {
+    ($t:ty, $v:ident, $self:ident, $into:expr) => {
+        impl ToSpanner for $t {
+            fn to_spanner(&self, _: &Type) -> Result<Value, Error> {
+                let $self = self;
+                Ok(Value::$v($into))
+            }
+        }
+    };
+    ($t:ty, i64_from) => {
+        simple_to!($t, Int64, v, i64::from(*v));
+    };
+    ($t:ty, $v:ident, clone) => {
+        simple_to!($t, $v, v, v.clone());
+    };
+}
+
+impl<T> ToSpanner for Option<T>
+where
+    T: ToSpanner,
+{
+    fn to_spanner(&self, tpe: &Type) -> Result<Value, Error> {
+        match self.as_ref() {
+            Some(v) => v.to_spanner(tpe),
+            None => Ok(Value::Null(*tpe)),
+        }
     }
 }
-impl ToSpanner for u32 {
-    fn to_spanner(&self) -> Result<Value, Error> {
-        Ok(Value::Int64(i64::from(*self)))
-    }
-}
-impl ToSpanner for i32 {
-    fn to_spanner(&self) -> Result<Value, Error> {
-        Ok(Value::Int64(i64::from(*self)))
-    }
-}
-impl ToSpanner for String {
-    fn to_spanner(&self) -> Result<Value, Error> {
-        Ok(Value::String(self.clone()))
-    }
-}
-impl ToSpanner for &str {
-    fn to_spanner(&self) -> Result<Value, Error> {
-        Ok(Value::String(self.to_string()))
-    }
-}
+
+simple_to!(i8, i64_from);
+simple_to!(u8, i64_from);
+simple_to!(i16, i64_from);
+simple_to!(u16, i64_from);
+simple_to!(i32, i64_from);
+simple_to!(u32, i64_from);
+simple_to!(i64, i64_from);
+simple_to!(String, String, clone);
+simple_to!(&str, String, v, v.to_string());
