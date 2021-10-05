@@ -85,6 +85,8 @@ simple_to!(u32, i64_from);
 simple_to!(i64, i64_from);
 simple_to!(String, String, clone);
 simple_to!(&str, String, v, v.to_string());
+simple_to!(BigDecimal, Numeric, clone);
+simple_to!(Bytes, Bytes, clone);
 
 #[cfg(test)]
 mod test {
