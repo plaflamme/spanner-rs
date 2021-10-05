@@ -1,4 +1,4 @@
-use crate::{Error, KeySet, ResultSet, Session, ToSpanner, Transaction, TransactionSelector};
+use crate::{Error, ResultSet, Session, ToSpanner, Transaction, TransactionSelector};
 use async_trait::async_trait;
 use dyn_clone::DynClone;
 
@@ -11,14 +11,6 @@ where
     async fn delete_session(&mut self, session: Session) -> Result<(), Error>;
     async fn commit(&mut self, session: &Session, transaction: Transaction) -> Result<(), Error>;
     async fn rollback(&mut self, session: &Session, transaction: Transaction) -> Result<(), Error>;
-
-    async fn read(
-        &mut self,
-        table: &str,
-        key_set: KeySet,
-        columns: Vec<String>,
-    ) -> Result<ResultSet, Error>;
-
     async fn execute_sql(
         &mut self,
         session: &Session,

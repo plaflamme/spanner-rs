@@ -2,14 +2,14 @@ use super::Connection;
 use crate::auth::AuthFilter;
 use crate::proto::google::spanner::v1 as proto;
 use crate::{
-    DatabaseId, Error, KeySet, ResultSet, Session, SpannerResource, ToSpanner, Transaction,
+    DatabaseId, Error, ResultSet, Session, SpannerResource, ToSpanner, Transaction,
     TransactionSelector,
 };
 use async_trait::async_trait;
 use gcp_auth::AuthenticationManager;
 use proto::{
     execute_sql_request::QueryMode, spanner_client::SpannerClient, CommitRequest,
-    CreateSessionRequest, DeleteSessionRequest, ExecuteSqlRequest, ReadRequest, RollbackRequest,
+    CreateSessionRequest, DeleteSessionRequest, ExecuteSqlRequest, RollbackRequest,
 };
 use tonic::transport::{Channel, ClientTlsConfig};
 use tonic::Request;
@@ -105,33 +105,6 @@ impl Connection for GrpcConnection {
             .await?;
 
         Ok(())
-    }
-
-    async fn read(
-        &mut self,
-        table: &str,
-        key_set: KeySet,
-        columns: Vec<String>,
-    ) -> Result<ResultSet, Error> {
-        let session = self.create_session().await?;
-        let result_set = self
-            .spanner
-            .read(Request::new(ReadRequest {
-                session: session.name().to_string(),
-                transaction: None,
-                table: table.to_string(),
-                index: "".to_string(),
-                columns,
-                key_set: Some(key_set.into()),
-                limit: 0,
-                resume_token: vec![],
-                partition_token: vec![],
-                request_options: None,
-            }))
-            .await?
-            .into_inner();
-
-        result_set.try_into()
     }
 
     async fn execute_sql(
