@@ -12,6 +12,10 @@ use prost_types::{ListValue, Value as SpannerValue};
 pub struct Struct(StructType, Vec<Value>);
 
 impl Struct {
+    pub fn new(struct_type: StructType, values: Vec<Value>) -> Self {
+        Self(struct_type, values)
+    }
+
     pub fn struct_type(&self) -> &StructType {
         &self.0
     }
