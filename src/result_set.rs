@@ -9,12 +9,12 @@ use crate::Transaction;
 use crate::Value;
 
 pub struct Row<'a> {
-    row_type: StructType,
+    row_type: &'a StructType,
     columns: &'a Vec<Value>,
 }
 
 impl<'a> Row<'a> {
-    pub fn try_get<T>(&'a self, column: usize) -> Result<T, Error>
+    pub fn get<T>(&'a self, column: usize) -> Result<T, Error>
     where
         T: FromSpanner<'a>,
     {
@@ -27,14 +27,28 @@ impl<'a> Row<'a> {
         }
     }
 
-    pub fn try_get_by_name<T>(&'a self, column_name: &str) -> Result<T, Error>
+    pub fn get_unchecked<T>(&'a self, column: usize) -> T
+    where
+        T: FromSpanner<'a>,
+    {
+        self.get(column).unwrap()
+    }
+
+    pub fn get_by_name<T>(&'a self, column_name: &str) -> Result<T, Error>
     where
         T: FromSpanner<'a>,
     {
         self.row_type
             .field_index(column_name)
             .ok_or_else(|| Error::Codec(format!("no such column: {}", column_name)))
-            .and_then(|idx| self.try_get(idx))
+            .and_then(|idx| self.get(idx))
+    }
+
+    pub fn get_by_name_unchecked<T>(&'a self, column_name: &str) -> T
+    where
+        T: FromSpanner<'a>,
+    {
+        self.get_by_name(column_name).unwrap()
     }
 }
 
@@ -68,10 +82,8 @@ pub struct ResultSet {
 
 impl ResultSet {
     pub fn iter(&self) -> impl Iterator<Item = Row<'_>> {
-        let row_type = self.row_type.clone();
-
         self.rows.iter().map(move |columns| Row {
-            row_type: row_type.clone(),
+            row_type: &self.row_type,
             columns,
         })
     }

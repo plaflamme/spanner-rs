@@ -50,8 +50,8 @@ async fn test_read_write() -> Result<(), Error> {
     let row = result_set.iter().next();
     assert!(row.is_some());
     let row = row.unwrap();
-    assert_eq!(row.try_get_by_name::<i32>("a")?, 1);
-    assert_eq!(row.try_get_by_name::<&str>("b")?, "one");
+    assert_eq!(row.get_by_name_unchecked::<i32>("a"), 1);
+    assert_eq!(row.get_by_name_unchecked::<&str>("b"), "one");
 
     Ok(())
 }
