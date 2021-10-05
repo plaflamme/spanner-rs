@@ -119,6 +119,7 @@ simple!(BigDecimal, Numeric, Clone::clone);
 simple!(&'a BigDecimal, Numeric, std::convert::identity);
 simple!(Bytes, Bytes, Clone::clone);
 simple!(&'a Bytes, Bytes, std::convert::identity);
+simple!(&'a [u8], Bytes, std::convert::identity);
 
 #[cfg(test)]
 mod test {
@@ -216,6 +217,12 @@ mod test {
         from_spanner_err!(Bytes, Int64, 0);
         from_spanner_non_nullable!(Bytes, Bytes);
         from_spanner_nullable!(Bytes, Bytes);
+
+        // assert FromSpanner for &[u8] from Bytes
+        let data: &'static [u8] = &[1, 2, 3, 4];
+        let bytes = Value::Bytes(Bytes::from_static(data));
+        let slice = <&[u8] as FromSpanner>::from_spanner_nullable(&Type::Bytes, &bytes);
+        assert_eq!(slice.ok(), Some(data));
     }
 
     #[test]
