@@ -1,3 +1,5 @@
+use std::num::TryFromIntError;
+
 use crate::config::{ConfigBuilderError, SessionPoolConfigBuilderError};
 use bb8::RunError;
 
@@ -37,5 +39,11 @@ impl From<ConfigBuilderError> for Error {
 impl From<SessionPoolConfigBuilderError> for Error {
     fn from(value: SessionPoolConfigBuilderError) -> Self {
         Error::Config(format!("{}", value))
+    }
+}
+
+impl From<TryFromIntError> for Error {
+    fn from(value: TryFromIntError) -> Self {
+        Error::Codec(format!("{}", value))
     }
 }

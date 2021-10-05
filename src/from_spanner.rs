@@ -76,48 +76,49 @@ impl<'a> FromSpanner<'a> for &'a str {
 }
 
 macro_rules! simple {
-    ($t:ty, $f:ident, $capture:ident, $from:expr) => {
+    ($t:ty, $f:ident, TryFrom::try_from) => {
         impl<'a> FromSpanner<'a> for $t {
             fn from_spanner(tpe: &'a Type, value: &'a Value) -> Result<$t, Error> {
                 match value {
-                    Value::$f($capture) => $from,
+                    Value::$f(v) => Ok(TryFrom::try_from(*v)?),
                     _ => wrong_type!($f, tpe),
                 }
             }
         }
     };
-    ($t:ty, $f:ident, move) => {
-        simple!($t, $f, v, Ok(v));
-    };
-    ($t:ty, $f:ident, copy) => {
-        simple!($t, $f, v, Ok(*v));
-    };
-    ($t:ty, $f:ident, clone) => {
-        simple!($t, $f, v, Ok(v.clone()));
-    };
-    ($t:ty, $f:ident, try_from) => {
-        simple!(
-            $t,
-            $f,
-            v,
-            <$t>::try_from(*v).map_err(|err| Error::Codec(format!("{}", err)))
-        );
+    ($t:ty, $f:ident, $from:path) => {
+        impl<'a> FromSpanner<'a> for $t {
+            fn from_spanner(tpe: &'a Type, value: &'a Value) -> Result<$t, Error> {
+                match value {
+                    Value::$f(v) => Ok($from(v)),
+                    _ => wrong_type!($f, tpe),
+                }
+            }
+        }
     };
 }
 
-simple!(i8, Int64, try_from);
-simple!(u8, Int64, try_from);
-simple!(i16, Int64, try_from);
-simple!(u16, Int64, try_from);
-simple!(i32, Int64, try_from);
-simple!(u32, Int64, try_from);
+#[inline]
+fn copy<T>(value: &T) -> T
+where
+    T: Copy,
+{
+    *value
+}
+
+simple!(i8, Int64, TryFrom::try_from);
+simple!(u8, Int64, TryFrom::try_from);
+simple!(i16, Int64, TryFrom::try_from);
+simple!(u16, Int64, TryFrom::try_from);
+simple!(i32, Int64, TryFrom::try_from);
+simple!(u32, Int64, TryFrom::try_from);
 simple!(i64, Int64, copy);
 simple!(f64, Float64, copy);
 simple!(bool, Bool, copy);
-simple!(BigDecimal, Numeric, clone);
-simple!(&'a BigDecimal, Numeric, move);
-simple!(Bytes, Bytes, clone);
-simple!(&'a Bytes, Bytes, move);
+simple!(BigDecimal, Numeric, Clone::clone);
+simple!(&'a BigDecimal, Numeric, std::convert::identity);
+simple!(Bytes, Bytes, Clone::clone);
+simple!(&'a Bytes, Bytes, std::convert::identity);
 
 #[cfg(test)]
 mod test {

@@ -1,3 +1,6 @@
+use bigdecimal::BigDecimal;
+use prost::bytes::Bytes;
+
 use crate::{Error, Type, Value};
 
 pub trait ToSpanner {
@@ -6,27 +9,6 @@ pub trait ToSpanner {
     fn spanner_type() -> Type
     where
         Self: Sized;
-}
-
-macro_rules! simple_to {
-    ($t:ty, $v:ident, $self:ident, $into:expr) => {
-        impl ToSpanner for $t {
-            fn to_spanner(&self) -> Result<Value, Error> {
-                let $self = self;
-                Ok(Value::$v($into))
-            }
-
-            fn spanner_type() -> Type {
-                Type::$v
-            }
-        }
-    };
-    ($t:ty, i64_from) => {
-        simple_to!($t, Int64, v, i64::from(*v));
-    };
-    ($t:ty, $v:ident, clone) => {
-        simple_to!($t, $v, v, v.clone());
-    };
 }
 
 impl<T> ToSpanner for Option<T>
@@ -76,17 +58,31 @@ where
     }
 }
 
-simple_to!(i8, i64_from);
-simple_to!(u8, i64_from);
-simple_to!(i16, i64_from);
-simple_to!(u16, i64_from);
-simple_to!(i32, i64_from);
-simple_to!(u32, i64_from);
-simple_to!(i64, i64_from);
-simple_to!(String, String, clone);
-simple_to!(&str, String, v, v.to_string());
-simple_to!(BigDecimal, Numeric, clone);
-simple_to!(Bytes, Bytes, clone);
+macro_rules! simple {
+    ($t:ty, $v:ident, $into:path $(, $deref:tt)?) => {
+        impl ToSpanner for $t {
+            fn to_spanner(&self) -> Result<Value, Error> {
+                Ok(Value::$v($into($($deref)? self)))
+            }
+
+            fn spanner_type() -> Type {
+                Type::$v
+            }
+        }
+    };
+}
+
+simple!(i8, Int64, i64::from, *);
+simple!(u8, Int64, i64::from, *);
+simple!(i16, Int64, i64::from, *);
+simple!(u16, Int64, i64::from, *);
+simple!(i32, Int64, i64::from, *);
+simple!(u32, Int64, i64::from, *);
+simple!(i64, Int64, i64::from, *);
+simple!(String, String, Clone::clone);
+simple!(&str, String, ToString::to_string);
+simple!(BigDecimal, Numeric, Clone::clone);
+simple!(Bytes, Bytes, Clone::clone);
 
 #[cfg(test)]
 mod test {
