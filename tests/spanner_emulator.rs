@@ -152,7 +152,9 @@ pub(crate) async fn new_client<'a>() -> Result<ClientFixture<'a>, Error> {
 
     let client = Client::configure()
         .with_emulator_grpc_port(container.grpc_port())
-        .database(database_id)
+        .project("test-project")
+        .instance("test-instance")
+        .database("test-database")
         .connect()
         .await?;
 

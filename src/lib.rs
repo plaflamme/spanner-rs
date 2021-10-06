@@ -8,9 +8,11 @@
 //! #[tokio::main]
 //! fn main() -> Result<(), Error> {
 //!     let mut client = Client::config()
-//!         .with_instance("my-gcp-project", "my-instance")
-//!         .with_database("my-database")
-//!         .connect();
+//!         .project("my-gcp-project")
+//!         .instance("my-instance")
+//!         .database("my-database")
+//!         .connect()
+//!         .await?;
 //!
 //!     client
 //!         .read_write()
@@ -89,7 +91,7 @@
 //! ```
 
 pub use crate::client::*;
-pub use crate::config::{Config, ConfigBuilder};
+pub use crate::config::*;
 pub(crate) use crate::connection::Connection;
 pub use crate::error::Error;
 pub use crate::from_spanner::*;

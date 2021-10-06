@@ -1,7 +1,7 @@
 use std::num::TryFromIntError;
 
-use crate::config::{ConfigBuilderError, SessionPoolConfigBuilderError};
 use bb8::RunError;
+use derive_builder::UninitializedFieldError;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -30,20 +30,14 @@ impl From<RunError<Error>> for Error {
     }
 }
 
-impl From<ConfigBuilderError> for Error {
-    fn from(value: ConfigBuilderError) -> Self {
-        Error::Config(format!("{}", value))
-    }
-}
-
-impl From<SessionPoolConfigBuilderError> for Error {
-    fn from(value: SessionPoolConfigBuilderError) -> Self {
-        Error::Config(format!("{}", value))
-    }
-}
-
 impl From<TryFromIntError> for Error {
     fn from(value: TryFromIntError) -> Self {
         Error::Codec(format!("{}", value))
+    }
+}
+
+impl From<UninitializedFieldError> for Error {
+    fn from(value: UninitializedFieldError) -> Self {
+        Error::Config(format!("{}", value))
     }
 }

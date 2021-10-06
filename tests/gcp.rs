@@ -1,6 +1,6 @@
 use std::ops::{Deref, DerefMut};
 
-use spanner_rs::{Client, DatabaseId, Error, InstanceId};
+use spanner_rs::{Client, Error};
 
 pub(crate) struct ClientWrapper(Client);
 impl Deref for ClientWrapper {
@@ -30,10 +30,9 @@ pub(crate) async fn new_client() -> Result<ClientWrapper, Error> {
         .expect("missing SPANNER_RS_DATABASE environment variable");
 
     let client = Client::configure()
-        .database(DatabaseId::new(
-            InstanceId::new(&project_id, &instance),
-            &database,
-        ))
+        .project(project_id)
+        .instance(instance)
+        .database(database)
         .connect()
         .await?;
 

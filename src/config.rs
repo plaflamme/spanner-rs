@@ -1,11 +1,22 @@
 use bb8::{Builder as PoolBuilder, Pool};
 use tonic::transport::ClientTlsConfig;
 
-use crate::{Client, DatabaseId, Error, SessionManager};
+use crate::{Client, DatabaseId, Error, InstanceId, SessionManager};
 use derive_builder::Builder;
 
+/// Configuration for building a [Client].
+///
+/// # Example
+/// ```rust
+/// Config::builder()
+///     .project("my-gcp-project")
+///     .instance("my-spanner-instance")
+///     .database("my-database")
+///     .connect()
+///     .await?
+/// ```
 #[derive(Builder, Debug)]
-#[builder(pattern = "owned")]
+#[builder(pattern = "owned", build_fn(error = "crate::Error"))]
 pub struct Config {
     /// Set the URI to use to reach the Spanner API. Leave unspecified to use Cloud Spanner.
     #[builder(setter(strip_option, into), default)]
@@ -15,18 +26,58 @@ pub struct Config {
     #[builder(setter(strip_option), default = "Some(ClientTlsConfig::default())")]
     tls_config: Option<ClientTlsConfig>,
 
-    database: DatabaseId,
-    #[builder(setter(into), default)]
+    /// Specify the GCP project where the Cloud Spanner instance exists.
+    ///
+    /// This may be left unspecified, in which case, the project will be extracted
+    /// from the credentials. Note that this only works when authenticating using [service accounts](https://cloud.google.com/docs/authentication/production).
+    #[builder(setter(strip_option, into), default)]
+    project: Option<String>,
+
+    /// Set the Cloud Spanner instance ID.
+    #[builder(setter(strip_option, into))]
+    instance: String,
+
+    /// Set the Cloud Spanner database name.
+    #[builder(setter(strip_option, into))]
+    database: String,
+
+    /// Programatically specify the credentials file to use during authentication.
+    ///
+    /// When this is specified, it is used in favor of the `GOOGLE_APPLICATION_CREDENTIALS` environment variable.
+    #[builder(setter(strip_option, into), default)]
     credentials_file: Option<String>,
+
+    /// Configuration for the embedded session pool.
     #[builder(setter(strip_option), default)]
     session_pool_config: Option<SessionPoolConfig>,
 }
 
 impl Config {
+    /// Returns a new [ConfigBuilder] for configuring a new client.
     pub fn builder() -> ConfigBuilder {
         ConfigBuilder::default()
     }
 
+    /// Connect to Cloud Spanner and return a new [Client].
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// Config::builder()
+    ///     .project("my-gcp-project")
+    ///     .instance("my-instance")
+    ///     .database("my_database")
+    ///     .connect()
+    ///     .await?;
+    /// ```
+    ///
+    /// # Authentication
+    ///
+    /// Authentication uses the [gcp_auth] crate which supports several authentication methods.
+    /// In a typical production environment, nothing needs to be programatically provided during configuration as
+    /// credentials are normally obtained from the environment (i.e.: `GOOGLE_APPLICATION_CREDENTIALS`).
+    ///
+    /// Similarly, for local development, authentication will transparently delegate to the `gcloud` command line tool.
     pub async fn connect(self) -> Result<Client, Error> {
         let auth = if self.tls_config.is_none() {
             None
@@ -37,15 +88,28 @@ impl Config {
             }
         };
 
+        let project_id = match self.project {
+            Some(project) => project,
+            None => {
+                if let Some(auth) = auth.as_ref() {
+                    auth.project_id().await?
+                } else {
+                    return Err(Error::Config("missing project id".to_string()));
+                }
+            }
+        };
+        let database_id =
+            DatabaseId::new(InstanceId::new(&project_id, &self.instance), &self.database);
+
         let connection =
-            crate::connection::grpc::connect(self.endpoint, self.tls_config, auth, self.database)
+            crate::connection::grpc::connect(self.endpoint, self.tls_config, auth, database_id)
                 .await?;
-        let mgr = SessionManager::new(connection.clone());
+
         let pool = self
             .session_pool_config
             .unwrap_or_default()
             .build()
-            .build(mgr)
+            .build(SessionManager::new(connection.clone()))
             .await?;
 
         Ok(Client::connect(connection, pool))
@@ -54,7 +118,7 @@ impl Config {
 
 impl ConfigBuilder {
     /// Disable TLS when connecting to Spanner. This usually only makes sense when using the emulator.
-    /// Note that this also disables authentication.
+    /// Note that this also disables authentication to prevent sending secrets in plain text.
     pub fn disable_tls(self) -> Self {
         Self {
             tls_config: Some(None),
@@ -74,16 +138,20 @@ impl ConfigBuilder {
         self.with_emulator_host(format!("http://localhost:{}", port))
     }
 
+    /// See [Config::connect]
     pub async fn connect(self) -> Result<Client, Error> {
         self.build()?.connect().await
     }
 }
 
 #[derive(Builder, Default, Debug)]
-#[builder(pattern = "owned")]
+#[builder(pattern = "owned", build_fn(error = "crate::Error"))]
 pub struct SessionPoolConfig {
+    /// Specify the maximum number of sessions that should be maintained in the pool.
     #[builder(setter(strip_option), default)]
     max_size: Option<u32>,
+
+    /// Specify the minimum number of sessions that should be maintained in the pool.
     #[builder(setter(strip_option), default)]
     min_idle: Option<u32>,
 }
@@ -106,21 +174,19 @@ impl SessionPoolConfig {
 mod test {
 
     use super::*;
-    use crate::{DatabaseId, InstanceId};
 
     #[test]
     fn test_config_database() {
-        let cfg = Config::builder().database(DatabaseId::new(
-            InstanceId::new("project", "instance"),
-            "db",
-        ));
-        assert_eq!(
-            cfg.database,
-            Some(DatabaseId::new(
-                InstanceId::new("project", "instance"),
-                "db"
-            ))
-        )
+        let cfg = Config::builder()
+            .project("project")
+            .instance("instance")
+            .database("database")
+            .build()
+            .unwrap();
+
+        assert_eq!(cfg.project, Some("project".to_string()));
+        assert_eq!(cfg.instance, "instance".to_string());
+        assert_eq!(cfg.database, "database".to_string());
     }
 
     #[test]
