@@ -5,12 +5,13 @@ edition = "2021"
 description = "Cloud Spanner Rust Client"
 license = "MIT"
 authors = ["Philippe Laflamme <philippe.laflamme@gmail.com>"]
+repository = "https://github.com/plaflamme/spanner-rs/"
 keywords = ["database", "spanner", "gcp", "sql", "async"]
 categories = ["database"]
 
 [features]
 # This is only used for testing. Not sure how to make it "private"
-gcp = []
+# gcp = []
 
 [dependencies]
 async-trait = "0.1"
@@ -43,3 +44,10 @@ tonic-build = "0.5"
 
 [lib]
 doctest = false # TODO: move generated code to another crate to only disable this in that crate.
+
+[package.metadata.release]
+sign-commit = true
+sign-tag = true
+pre-release-commit-message = "chore: release {{version}}"
+post-release-commit-message = "chore: prepare {{version}}"
+tag-message = "chore: release {{version}}"

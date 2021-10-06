@@ -13,7 +13,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly
+          toolchain: beta
           override: true
           components: rustfmt
       - uses: Swatinem/rust-cache@v1
@@ -28,7 +28,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly
+          toolchain: beta
           override: true
           components: rustfmt
       - uses: Swatinem/rust-cache@v1
@@ -46,7 +46,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly
+          toolchain: beta
           override: true
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v1
