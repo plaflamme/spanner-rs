@@ -7,14 +7,14 @@
 //!
 //! #[tokio::main]
 //! fn main() -> Result<(), Error> {
-//!     let mut client = Client::config()
+//!     let mut client = Client::configure()
 //!         .project("my-gcp-project")
 //!         .instance("my-instance")
 //!         .database("my-database")
 //!         .connect()
 //!         .await?;
 //!
-//!     // assumig the following table:
+//!     // assuming the following table:
 //!     //   person(id INT64, name STRING(MAX), data BYTES(MAX))
 //!     client
 //!         .read_write()
