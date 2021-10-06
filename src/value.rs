@@ -1,6 +1,5 @@
 use std::str::FromStr;
 
-use crate::proto::google::spanner::v1 as proto;
 use crate::{Error, StructType, Type};
 
 use bigdecimal::BigDecimal;
@@ -88,17 +87,20 @@ impl Value {
             .kind
             .ok_or_else(|| Error::Codec("unexpected missing value format".to_string()))?;
 
-        if let Kind::NullValue(type_code) = kind {
-            if let Some(type_code) = proto::TypeCode::from_i32(type_code) {
-                if tpe.code() == type_code {
-                    return Ok(Value::Null(tpe.clone()));
-                }
-            }
-            return Err(Error::Codec(format!(
-                "null value had unexpected type code {}, expected {}",
-                type_code,
-                tpe.code() as i32
-            )));
+        if let Kind::NullValue(_) = kind {
+            return Ok(Value::Null(tpe.clone()));
+            // TODO: this doesn't seem to work. Null values seem to have 0 as their type code
+            // if let Some(type_code) = proto::TypeCode::from_i32(type_code) {
+            //     if tpe.code() == type_code {
+            //         return Ok(Value::Null(tpe.clone()));
+            //     }
+            // }
+            // return Err(Error::Codec(format!(
+            //     "null value had unexpected type code {}, expected {} ({:?})",
+            //     type_code,
+            //     tpe.code() as i32,
+            //     tpe.code(),
+            // )));
         }
 
         match tpe {

@@ -146,7 +146,10 @@ pub(crate) async fn new_client<'a>() -> Result<ClientFixture<'a>, Error> {
         .await
         .with_database(
             &database_id,
-            vec!["CREATE TABLE my_table(a INT64, b STRING(MAX)) PRIMARY KEY(a)"],
+            vec![
+                "CREATE TABLE my_table(a INT64, b STRING(MAX)) PRIMARY KEY(a)",
+                "CREATE TABLE person(id INT64, name STRING(MAX) NOT NULL, data BYTES(MAX)) PRIMARY KEY(id)",
+            ],
         )
         .await;
 

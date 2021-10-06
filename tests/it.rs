@@ -15,6 +15,36 @@ mod gcp;
 use gcp::new_client;
 
 #[tokio::test]
+async fn test_lib_example() -> Result<(), Error> {
+    let mut client = new_client().await?;
+
+    client
+        .read_write()
+        .run(|tx| {
+            tx.execute_update(
+                "INSERT INTO person(id, name, data) VALUES(@id, @name, NULL)",
+                &[("id", &42), ("name", &"ferris")],
+            )
+        })
+        .await?;
+
+    let result_set = client
+        .read_only()
+        .execute_sql("SELECT * FROM person", &[])
+        .await?;
+
+    for row in result_set.iter() {
+        let id: u32 = row.get_by_name("id")?;
+        let name: &str = row.get_by_name("name")?;
+        let data: Option<&[u8]> = row.get_by_name("data")?;
+
+        println!("found person: {} {} {:?}", id, name, data);
+    }
+
+    Ok(())
+}
+
+#[tokio::test]
 async fn test_read_only() -> Result<(), Error> {
     let client = new_client().await?;
     let mut read_only = client.read_only();

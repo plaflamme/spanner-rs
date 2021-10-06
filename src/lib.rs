@@ -14,25 +14,21 @@
 //!         .connect()
 //!         .await?;
 //!
+//!     // assumig the following table:
+//!     //   person(id INT64, name STRING(MAX), data BYTES(MAX))
 //!     client
 //!         .read_write()
 //!         .run(|tx| {
 //!             tx.execute_update(
-//!                 "CREATE TABLE person(id INT64, name STRING(MAX), data BYTES)",
-//!                 &[],
-//!             )
-//!         })
-//!         .run(|tx| {
-//!             tx.execute_update(
 //!                 "INSERT INTO person(id, name, data) VALUES(@id, @name, NULL)",
-//!                 &[("id", &42), ("name", "ferris")],
+//!                 &[("id", &42), ("name", &"ferris")],
 //!             )
 //!         })
 //!         .await?;
 //!
 //!     let result_set = client
 //!         .read_only()
-//!         .execute_sql("SELECT * FROM person")
+//!         .execute_sql("SELECT * FROM person", &[])
 //!         .await?;
 //!
 //!     for row in result_set.iter() {
@@ -61,7 +57,6 @@
 //! Reading is done using [ReadContext] which can be obtained using [Client::read_only()] or [Client::read_only_with_bound()].
 //!
 //! Example
-//!
 //! ```rust
 //! let result_set = client
 //!     .read_only()
@@ -77,7 +72,6 @@
 //! This client encapsulates the necessary retry logic such that applications do not need to implement it themselves.
 //!
 //! Example:
-//!
 //! ```rust
 //! client.read_write().run(|tx| {
 //!     // this closure may be invoked more than once
