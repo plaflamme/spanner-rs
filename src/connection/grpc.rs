@@ -113,6 +113,7 @@ impl Connection for GrpcConnection {
         selector: &TransactionSelector,
         statement: &str,
         parameters: &[(&str, &(dyn ToSpanner + Sync))],
+        seqno: Option<i64>,
     ) -> Result<ResultSet, Error> {
         let mut params = std::collections::BTreeMap::new();
         let mut param_types = std::collections::HashMap::new();
@@ -133,7 +134,7 @@ impl Connection for GrpcConnection {
                 resume_token: vec![],
                 query_mode: QueryMode::Normal as i32,
                 partition_token: vec![],
-                seqno: 0, // ignored for queries
+                seqno: seqno.unwrap_or(0), // ignored for queries, required for DML
                 query_options: None,
                 request_options: None,
             }))

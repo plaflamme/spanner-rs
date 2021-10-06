@@ -17,6 +17,7 @@ where
         selector: &TransactionSelector,
         statement: &str,
         parameters: &[(&str, &(dyn ToSpanner + Sync))],
+        seqno: Option<i64>,
     ) -> Result<ResultSet, Error>;
 }
 

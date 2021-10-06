@@ -117,6 +117,7 @@ impl ReadContext for ReadOnly {
                 &TransactionSelector::SingleUse(self.bound.clone()),
                 statement,
                 parameters,
+                None,
             )
             .await?;
 
@@ -156,6 +157,7 @@ pub struct Tx<'a> {
     connection: Box<dyn Connection>,
     session: PooledConnection<'a, SessionManager>,
     selector: TransactionSelector,
+    seqno: i64,
 }
 
 #[async_trait::async_trait]
@@ -165,9 +167,17 @@ impl<'a> ReadContext for Tx<'a> {
         statement: &str,
         parameters: &[(&str, &(dyn ToSpanner + Sync))],
     ) -> Result<ResultSet, Error> {
+        // seqno is required on DML queries and ignored otherwise. Specifying it on every query is fine.
+        self.seqno += 1;
         let result_set = self
             .connection
-            .execute_sql(&self.session, &self.selector, statement, parameters)
+            .execute_sql(
+                &self.session,
+                &self.selector,
+                statement,
+                parameters,
+                Some(self.seqno),
+            )
             .await?;
 
         // TODO: this is brittle, if we forget to do this in some other method, then we risk not committing.
@@ -262,10 +272,12 @@ impl TxRunner {
             connection: self.connection.clone(),
             session,
             selector: TransactionSelector::Begin,
+            seqno: 0,
         };
 
         loop {
             ctx.selector = TransactionSelector::Begin;
+            ctx.seqno = 0;
             let result = (work)(&mut ctx).await;
 
             let commit_result = if let TransactionSelector::Id(tx) = ctx.selector {
