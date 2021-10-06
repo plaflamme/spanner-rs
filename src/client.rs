@@ -9,13 +9,15 @@ use crate::TimestampBound;
 use crate::ToSpanner;
 use crate::{session::SessionManager, ConfigBuilder, Connection, Error, TransactionSelector};
 
+/// An asynchronous Cloud Spanner client.
 pub struct Client {
     connection: Box<dyn Connection>,
     session_pool: Pool<SessionManager>,
 }
 
 impl Client {
-    pub fn config() -> ConfigBuilder {
+    /// Returns a new [ConfigBuilder] which can be used to configure how to connect to a Cloud Spanner instance and database.
+    pub fn configure() -> ConfigBuilder {
         ConfigBuilder::default()
     }
 }
@@ -31,6 +33,8 @@ impl Client {
         }
     }
 
+    /// Returns a [ReadContext] that can be used to read data out of Cloud Spanner.
+    /// The returned context uses [TimestampBound::Strong] consistency for each individual read.
     pub fn read_only(&self) -> impl ReadContext {
         ReadOnly {
             connection: self.connection.clone(),
@@ -39,6 +43,8 @@ impl Client {
         }
     }
 
+    /// Returns a [ReadContext] that can be used to read data out of Cloud Spanner.
+    /// The returned context uses the specified bounded consistency for each individual read.
     pub fn read_only_with_bound(&self, bound: TimestampBound) -> impl ReadContext {
         ReadOnly {
             connection: self.connection.clone(),
@@ -47,6 +53,7 @@ impl Client {
         }
     }
 
+    /// Returns a [TransactionContext] that can be used to both read and write data from/into Cloud Spanner.
     pub fn read_write(&mut self) -> TxRunner {
         TxRunner {
             connection: self.connection.clone(),
@@ -55,8 +62,33 @@ impl Client {
     }
 }
 
+/// Defines the interface to read data out of Cloud Spanner.
 #[async_trait::async_trait]
 pub trait ReadContext {
+    /// Execute a read-only SQL statement and returns a [ResultSet].
+    ///
+    /// # Parameters
+    ///
+    /// As per the [Cloud Spanner documentation](https://cloud.google.com/spanner/docs/sql-best-practices#query-parameters), the statement may contain named parameters, e.g.: `@param_name`.
+    /// When such parameters are present in the SQL query, their value must be provided in the second argument to this function.
+    ///
+    /// See [ToSpanner] to determine how Rust values can be mapped to Cloud Spanner values.
+    ///
+    /// If the parameter values do not line up with parameters in the statement, an [Error] is returned.
+    ///
+    /// # Example
+    ///
+    ///  ```rust
+    ///  let my_id = 42;
+    ///  let rs = client.read_only().execute_sql(
+    ///      "SELECT id FROM person WHERE id > @my_id",
+    ///      &[("my_id", &my_id)],
+    ///  ).await?;
+    ///  for row in rs.iter() {
+    ///    let id: u32 = row.get("id");
+    ///    println!("id: {}", id);
+    ///  }
+    ///  ```
     async fn execute_sql(
         &mut self,
         statement: &str,
@@ -92,8 +124,27 @@ impl ReadContext for ReadOnly {
     }
 }
 
+/// Defines the interface to read from and write into Cloud Spanner.
+///
+/// This extends [ReadContext] to provide additional write functionalities.
 #[async_trait::async_trait]
 pub trait TransactionContext: ReadContext {
+    /// Execute a read-only SQL statement and returns the number of affected rows.
+    ///
+    /// # Parameters
+    ///
+    /// Like its [ReadContext::execute_sql] counterpart, this function also supports query parameters.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// let id = 42;
+    /// let name = "ferris";
+    /// let rows = tx.execute_update(
+    ///   "INSERT INTO person(id, name) VALUES (@id, @name)",
+    ///   &[("id", &id), ("name", name)]
+    /// ).await?;
+    /// println!("Inserted {} row", rows);
     async fn execute_update(
         &mut self,
         statement: &str,
@@ -144,12 +195,64 @@ impl<'a> TransactionContext for Tx<'a> {
     }
 }
 
+/// Allows running read/write transactions against Cloud Spanner.
 pub struct TxRunner {
     connection: Box<dyn Connection>,
     session_pool: Pool<SessionManager>,
 }
 
 impl TxRunner {
+    /// Runs abitrary read / write operations against Cloud Spanner.
+    ///
+    /// This function encapsulates the read/write transaction management concerns, allowing the application to minimize boilerplate.
+    ///
+    /// # Begin
+    ///
+    /// The underlying transaction is only lazily created. If the provided closure does no work against Cloud Spanner,
+    /// then no transaction is created.
+    ///
+    /// # Commit / Rollback
+    ///
+    /// The underlying transaction will be committed if the provided closure returns `Ok`.
+    /// Conversely, any `Err` returned will initiate a rollback.
+    ///
+    /// If the commit or rollback operation returns an unexpected error, then this function will return that error.
+    ///
+    /// # Retries
+    ///
+    /// When committing, Cloud Spanner may reject the transaction due to conflicts with another transaction.
+    /// In these situations, Cloud Spanner allows retrying the transaction which will have a higher priority and potentially successfully commit.
+    ///
+    /// **NOTE:** the consequence of retyring is that the provided closure may be invoked multiple times.
+    /// It is important to avoid doing any additional side effects within this closure as they will also potentially occur more than once.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// async fn bump_version(id: u32) -> Result<u32, Error> {
+    ///     client
+    ///         .read_write()
+    ///         .run(|tx| {
+    ///             Box::pin(async move {
+    ///                 let rs = tx
+    ///                     .execute_sql(
+    ///                         "SELECT MAX(version) FROM versions WHERE id = @id",
+    ///                         &[("id", &id)],
+    ///                     )
+    ///                     .await?;
+    ///                 let latest_version = rs.iter().next().unwrap().get::<u32>(0)?;
+    ///                 let next_version = latest_version + 1;
+    ///                 tx.execute_update(
+    ///                     "INSERT INTO versions(id, version) VALUES(@id, @next_version)",
+    ///                     &[("id", &id), ("next_version", &next_version)],
+    ///                 )
+    ///                 .await?;
+    ///                 Ok(next_version)
+    ///             })
+    ///         })
+    ///         .await?
+    /// }
+    /// ```
     pub async fn run<'b, O, F>(&'b mut self, mut work: F) -> Result<O, Error>
     where
         F: for<'a> FnMut(&'a mut Tx<'b>) -> Pin<Box<dyn Future<Output = Result<O, Error>> + 'a>>,

@@ -29,7 +29,7 @@ pub(crate) async fn new_client() -> Result<ClientWrapper, Error> {
     let database = std::env::var("SPANNER_RS_DATABASE")
         .expect("missing SPANNER_RS_DATABASE environment variable");
 
-    let client = Client::config()
+    let client = Client::configure()
         .database(DatabaseId::new(
             InstanceId::new(&project_id, &instance),
             &database,
