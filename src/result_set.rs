@@ -18,12 +18,9 @@ impl<'a> Row<'a> {
     where
         T: FromSpanner<'a>,
     {
-        match self.row_type.0.get(column) {
+        match self.columns.get(column) {
             None => Err(Error::Codec(format!("no such column {}", column))),
-            Some((_, tpe)) => {
-                let value = self.columns.get(column).unwrap();
-                <T as FromSpanner>::from_spanner_nullable(tpe, value)
-            }
+            Some(value) => <T as FromSpanner>::from_spanner_nullable(value),
         }
     }
 
