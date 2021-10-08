@@ -3,9 +3,36 @@ use prost::bytes::Bytes;
 
 use crate::{Error, Type, Value};
 
+/// A trait for Rust types that can be converted to Cloud Spanner values.
+///
+/// # Types
+///
+/// The crate provides the following mapping between Cloud Spanner types and Rust types.
+///
+/// | Rust Type | Spanner Type |
+/// |---|---|
+/// | `bool` | [`Bool`](https://cloud.google.com/spanner/docs/data-types#boolean_type) |
+/// | `u8`, `i8`, `u16`, `i16`, `u32`, `i32`, `i64` | [`Int64`](https://cloud.google.com/spanner/docs/data-types#integer_type) |
+/// | `f64` | [`Float64`](https://cloud.google.com/spanner/docs/data-types#floating_point_types) |
+/// | `&str`, `String` | [`String`](https://cloud.google.com/spanner/docs/data-types#string_type) |
+/// | `bigdecimal::BigDecimal` | [`Numeric`](https://cloud.google.com/spanner/docs/data-types#numeric_type) |
+/// | `&[u8]`, `Bytes` | [`Bytes`](https://cloud.google.com/spanner/docs/data-types#bytes_type) |
+///
+/// # Nullability
+///
+/// `ToSpanner` is implemented for `Option<T>` when `T` implements `ToSpanner`.
+/// `Option<T>` represents a nullable Spanner value.
+///
+/// # Arrays
+///
+/// `ToSpanner` is implemented for `Vec<T>` when `T` implements `ToSpanner`.
+/// Such values map to Spanner's [`Array`](https://cloud.google.com/spanner/docs/data-types#array_type) type.
+/// Arrays may contain `null` values (i.e.: `Vec<Option<T>>`). Note that `Vec<Vec<T>>` is not allowed.
 pub trait ToSpanner {
+    /// Creates a new Cloud Spanner value from this value.
     fn to_spanner(&self) -> Result<Value, Error>;
 
+    /// Returns the Cloud Spanner [Type] that this implementation produces.
     fn spanner_type() -> Type
     where
         Self: Sized;
