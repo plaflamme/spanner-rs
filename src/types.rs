@@ -16,7 +16,7 @@ impl StructType {
             fields
                 .into_iter()
                 .map(|(name, tpe)| {
-                    let field_name = if name.len() > 0 {
+                    let field_name = if !name.is_empty() {
                         Some(name.to_string())
                     } else {
                         None
@@ -167,9 +167,8 @@ impl Type {
     ///
     /// If the provided type is itself an `Type::Array`.
     pub fn array(inner: Type) -> Self {
-        match &inner {
-            Type::Array(_) => panic!("array of array is not supported by Cloud Spanner"),
-            _ => (),
+        if let Type::Array(_) = &inner {
+            panic!("array of array is not supported by Cloud Spanner");
         }
         Type::Array(Box::new(inner))
     }

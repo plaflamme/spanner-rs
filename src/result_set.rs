@@ -30,7 +30,7 @@ impl RowIndex for usize {
 /// Allows indexing into a row using a column name.
 impl RowIndex for str {
     fn index(&self, struct_type: &StructType) -> Option<usize> {
-        struct_type.field_index(&self)
+        struct_type.field_index(self)
     }
 }
 
