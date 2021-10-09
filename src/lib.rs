@@ -32,9 +32,9 @@
 //!         .await?;
 //!
 //!     for row in result_set.iter() {
-//!         let id: u32 = row.get_by_name("id")?;
-//!         let name: &str = row.get_by_name("name")?;
-//!         let data: Option<&[u8]> = row.get_by_name("data")?;
+//!         let id: u32 = row.get("id")?;
+//!         let name: &str = row.get("name")?;
+//!         let data: Option<&[u8]> = row.get("data")?;
 //!
 //!         println!("found person: {} {} {:?}", id, name, data);
 //!     }
@@ -62,7 +62,7 @@
 //!     .read_only()
 //!     .execute_sql("SELECT COUNT(*) AS people FROM person", &[])
 //!     .await?;
-//! let people: u32 = result_set.iter().next().unwrap().get_by_name("people")?;
+//! let people: u32 = result_set.iter().next().unwrap().get("people")?;
 //! ```
 //!
 //! ## Read Write

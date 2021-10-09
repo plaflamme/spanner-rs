@@ -70,9 +70,9 @@ fn main() -> Result<(), Error> {
         .await?;
 
     for row in result_set.iter() {
-        let id: u32 = row.get_by_name("id")?;
-        let name: &str = row.get_by_name("name")?;
-        let data: Option<&[u8]> = row.get_by_name("data")?;
+        let id: u32 = row.get("id")?;
+        let name: &str = row.get("name")?;
+        let data: Option<&[u8]> = row.get("data")?;
 
         println!("found person: {} {} {:?}", id, name, data);
     }
