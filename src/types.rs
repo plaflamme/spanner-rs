@@ -2,21 +2,52 @@ use crate::proto::google::spanner::v1 as proto;
 
 use std::convert::TryFrom;
 
+/// The Cloud Spanner [`Struct` type](https://cloud.google.com/spanner/docs/data-types#struct_type) which is composed of optionally named fields and their data type.
 #[derive(Clone, Debug, Default, PartialEq)]
-pub struct StructType(pub Vec<(Option<String>, Type)>);
+pub struct StructType(Vec<(Option<String>, Type)>);
 
 impl StructType {
+    /// Creates a new `StructType` with the provided fields.
+    ///
+    /// Note that Cloud Spanner allows "unnamed" fields. If a provided field name is the empty string,
+    /// it will be converted to a `None` in the resulting `StructType`.
+    pub fn new(fields: Vec<(&str, Type)>) -> Self {
+        Self(
+            fields
+                .into_iter()
+                .map(|(name, tpe)| {
+                    let field_name = if name.len() > 0 {
+                        Some(name.to_string())
+                    } else {
+                        None
+                    };
+                    (field_name, tpe)
+                })
+                .collect(),
+        )
+    }
+
+    /// Returns a reference to this struct's fields.
     pub fn fields(&self) -> &Vec<(Option<String>, Type)> {
         &self.0
     }
 
+    /// Returns an iterator over the names of this struct's fields.
+    pub fn field_names(&self) -> impl Iterator<Item = &Option<String>> {
+        self.0.iter().map(|(name, _)| name)
+    }
+
+    /// Returns an iterator over the types of this struct's fields.
     pub fn types(&self) -> impl Iterator<Item = &Type> {
         self.0.iter().map(|(_, tpe)| tpe)
     }
 
-    pub fn field_index(&self, column_name: &str) -> Option<usize> {
+    /// Returns the index of the provided field name.
+    /// Returns `None` if no field matches the provided name.
+    /// Note that this function ignores unnamed fields.
+    pub fn field_index(&self, field_name: &str) -> Option<usize> {
         self.0.iter().position(|(name, _)| match name {
-            Some(col) => *col == column_name,
+            Some(col) => *col == field_name,
             None => false,
         })
     }
@@ -52,33 +83,100 @@ impl TryFrom<&proto::StructType> for StructType {
     }
 }
 
+/// An enumeration of all Cloud Spanner [data types](https://cloud.google.com/spanner/docs/data-types).
+///
+/// Refer to the Cloud Spanner documentation for detailed information about individual data types.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Type {
+    /// The [BOOL](https://cloud.google.com/spanner/docs/data-types#boolean_type) data type.
+    ///
+    /// * Storage size: 1 byte
     Bool,
+
+    /// The [INT64](https://cloud.google.com/spanner/docs/data-types#integer_type) data type.
+    ///
+    /// * Storage size: 8 bytes
+    /// * Range: `-9,223,372,036,854,775,808` to `9,223,372,036,854,775,807`
     Int64,
+
+    /// The [FLOAT64](https://cloud.google.com/spanner/docs/data-types#floating_point_types) data type.
+    ///
+    /// Supports the special `NaN`, `+inf` and `-inf` values.
+    ///
+    /// * Storage size: 8 bytes
     Float64,
+
+    /// The [STRING](https://cloud.google.com/spanner/docs/data-types#string_type) data type.
+    ///
+    /// Must be valid UTF-8.
+    ///
+    /// * Storage: the number of bytes in its UTF-8 encoding
     String,
+
+    /// The [BYTES](https://cloud.google.com/spanner/docs/data-types#bytes_type) data type.
+    ///
+    /// * Storage: the number of bytes
     Bytes,
+
+    /// The [JSON](https://cloud.google.com/spanner/docs/data-types#json_type) data type.
+    ///
+    /// Note that the JSON document will be canonicalized before storing. Refer to the Cloud Spanner for details.
+    ///
+    /// * Storage: The number of bytes in UTF-8 encoding of the JSON-formatted string equivalent after canonicalization.
     Json,
+
+    /// The [NUMERIC](https://cloud.google.com/spanner/docs/data-types#numeric_type) data type.
+    ///
+    /// * Storage: varies between 6 and 22 bytes, except for the value 0 which uses 1 byte.
     Numeric,
+
+    /// The [TIMESTAMP](https://cloud.google.com/spanner/docs/data-types#timestamp_type) data type.
+    ///
+    /// Refer to the Cloud Spanner documentation for details on timezones and format when used in SQL statements.
+    ///
+    /// * Storage: 12 bytes
+    /// * Range: `0001-01-01 00:00:00` to `9999-12-31 23:59:59.999999999` UTC.
     Timestamp,
+
+    /// The [DATE](https://cloud.google.com/spanner/docs/data-types#date_type) data type.
+    ///
+    /// * Storage: 4 bytes
+    /// * Range: `0001-01-01` to `9999-12-31`.
+    /// * Canonical format: `YYYY-[M]M-[D]D`
     Date,
-    Array(Box<Type>),
+
+    /// The [ARRAY](https://cloud.google.com/spanner/docs/data-types#array_type) data type.
+    /// Can contain elements of any other type except `Array` (i.e.: arrays of arrays are not allowed).
+    /// Can contain `NULL` elements.
+    /// A `NULL` value of type array and an empty array are different values.
+    ///
+    /// * Storage: the sum of the size of its elements
+    Array(
+        /// The array's element type.
+        Box<Type>,
+    ),
+
+    /// The [STRUCT](https://cloud.google.com/spanner/docs/data-types#struct_type) data type.
     Struct(StructType),
 }
 
 impl Type {
+    /// Creates a new `Type::Array` with elements of the specified type.
+    ///
+    /// # Panics
+    ///
+    /// If the provided type is itself an `Type::Array`.
     pub fn array(inner: Type) -> Self {
+        match &inner {
+            Type::Array(_) => panic!("array of array is not supported by Cloud Spanner"),
+            _ => (),
+        }
         Type::Array(Box::new(inner))
     }
 
+    /// Creates a new `Type::Struct` with the provided field names and types.
     pub fn strct(fields: Vec<(&str, Type)>) -> Self {
-        Type::Struct(StructType(
-            fields
-                .into_iter()
-                .map(|(name, tpe)| (Some(name.to_string()), tpe))
-                .collect(),
-        ))
+        Type::Struct(StructType::new(fields))
     }
 
     pub(crate) fn code(&self) -> proto::TypeCode {
@@ -265,11 +363,6 @@ mod test {
         test_array_of_scalar(proto::TypeCode::Timestamp, Type::Timestamp);
         test_array_of_scalar(proto::TypeCode::Date, Type::Date);
 
-        assert_eq!(
-            Type::try_from(array_type(array_type(scalar_type(proto::TypeCode::Bool)))).unwrap(),
-            Type::array(Type::array(Type::Bool)),
-        );
-
         let invalid = proto::Type {
             code: proto::TypeCode::Array as i32,
             array_element_type: None,
@@ -277,6 +370,12 @@ mod test {
         };
 
         assert!(Type::try_from(invalid).is_err());
+    }
+
+    #[test]
+    #[should_panic]
+    fn _test_array_of_array_is_illegal() {
+        Type::array(Type::array(Type::Bool));
     }
 
     #[test]

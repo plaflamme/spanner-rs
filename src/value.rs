@@ -7,49 +7,67 @@ use prost::bytes::Bytes;
 use prost_types::value::Kind;
 use prost_types::{ListValue, Value as SpannerValue};
 
+/// The Cloud Spanner value for the [`Struct` type](https://cloud.google.com/spanner/docs/data-types#struct_type).
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Struct(StructType, Vec<Value>);
 
 impl Struct {
+    /// Creates a new `Struct` with the provided type and values.
+    ///
+    /// # Panics
+    ///
+    /// If the provided `StructType` does not have the same number of fields as the number of provided values.
     pub fn new(struct_type: StructType, values: Vec<Value>) -> Self {
+        if struct_type.fields().len() != values.len() {
+            panic!(
+                "invalid Struct: type has {} fields, but {} values were provided",
+                struct_type.fields().len(),
+                values.len()
+            )
+        }
         Self(struct_type, values)
     }
 
+    /// Returns a reference to this `Struct`'s type.
     pub fn struct_type(&self) -> &StructType {
         &self.0
     }
+
+    /// Returns a reference to this `Struct`'s values.
     pub fn values(&self) -> &Vec<Value> {
         &self.1
     }
+
     pub(crate) fn try_from(tpe: &StructType, list_value: ListValue) -> Result<Self, crate::Error> {
-        if tpe.0.len() != list_value.values.len() {
+        if tpe.fields().len() != list_value.values.len() {
             Err(crate::Error::Codec(format!(
                 "unmatched number of fields: expected {}, got {}",
-                tpe.0.len(),
+                tpe.fields().len(),
                 list_value.values.len()
             )))
         } else {
-            tpe.0
-                .iter()
+            tpe.types()
                 .zip(list_value.values)
-                .map(|((_name, tpe), value)| Value::try_from(tpe, value))
+                .map(|(tpe, value)| Value::try_from(tpe, value))
                 .collect::<Result<Vec<Value>, crate::Error>>()
                 .map(|values| Struct(tpe.clone(), values))
         }
     }
 }
 
+/// An enumeration of the Cloud Spanner values for each supported data type.
 // https://github.com/googleapis/googleapis/blob/master/google/spanner/v1/type.proto
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
+    /// Represents the SQL `NULL` value, with type information.
     Null(Type),
     Bool(bool),
     Int64(i64),
     Float64(f64),
     String(String),
     Bytes(Bytes),
-    Json(String), // TODO: serde-json feature
-    Numeric(BigDecimal),
+    Json(String),        // TODO: serde-json feature
+    Numeric(BigDecimal), // TODO: bigdecimal feature
     // Timestamp,
     // Date,
     Array(Type, Vec<Value>),
@@ -68,7 +86,7 @@ fn name_of(kind: Kind) -> &'static str {
 }
 
 impl Value {
-    pub fn r#type(&self) -> Type {
+    pub fn spanner_type(&self) -> Type {
         match self {
             Value::Bool(_) => Type::Bool,
             Value::Null(inner) => inner.clone(),
@@ -82,6 +100,7 @@ impl Value {
             Value::Struct(Struct(struct_type, _)) => Type::Struct(struct_type.clone()),
         }
     }
+
     pub(crate) fn try_from(tpe: &Type, value: SpannerValue) -> Result<Self, crate::Error> {
         let kind = value
             .kind
@@ -395,11 +414,11 @@ mod test {
                 ],
             }),
             Value::Struct(Struct(
-                StructType(vec![
-                    (Some("bool".to_string()), Type::Bool),
-                    (Some("int64".to_string()), Type::Int64),
-                    (Some("string".to_string()), Type::String),
-                    (Some("null".to_string()), Type::Float64),
+                StructType::new(vec![
+                    ("bool", Type::Bool),
+                    ("int64", Type::Int64),
+                    ("string", Type::String),
+                    ("null", Type::Float64),
                 ]),
                 vec![
                     Value::Bool(true),

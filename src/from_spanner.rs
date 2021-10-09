@@ -83,7 +83,7 @@ where
                 .iter()
                 .map(|value| <T as FromSpanner>::from_spanner_nullable(value))
                 .collect(),
-            _ => wrong_type!(String, value.r#type()),
+            _ => wrong_type!(String, value.spanner_type()),
         }
     }
 }
@@ -92,7 +92,7 @@ impl<'a> FromSpanner<'a> for String {
     fn from_spanner(value: &'a Value) -> Result<Self, Error> {
         match value {
             Value::String(v) => Ok(v.clone()),
-            _ => wrong_type!(String, value.r#type()),
+            _ => wrong_type!(String, value.spanner_type()),
         }
     }
 }
@@ -101,7 +101,7 @@ impl<'a> FromSpanner<'a> for &'a str {
     fn from_spanner(value: &'a Value) -> Result<Self, Error> {
         match value {
             Value::String(v) => Ok(v),
-            _ => wrong_type!(String, value.r#type()),
+            _ => wrong_type!(String, value.spanner_type()),
         }
     }
 }
@@ -112,7 +112,7 @@ macro_rules! simple {
             fn from_spanner(value: &'a Value) -> Result<$t, Error> {
                 match value {
                     Value::$f(v) => Ok(TryFrom::try_from(*v)?),
-                    _ => wrong_type!($f, value.r#type()),
+                    _ => wrong_type!($f, value.spanner_type()),
                 }
             }
         }
@@ -122,7 +122,7 @@ macro_rules! simple {
             fn from_spanner(value: &'a Value) -> Result<$t, Error> {
                 match value {
                     Value::$f(v) => Ok($from(v)),
-                    _ => wrong_type!($f, value.r#type()),
+                    _ => wrong_type!($f, value.spanner_type()),
                 }
             }
         }
