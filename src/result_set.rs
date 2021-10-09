@@ -8,44 +8,116 @@ use crate::StructType;
 use crate::Transaction;
 use crate::Value;
 
+/// A trait implemented by types that can index into a row.
+///
+/// Only the crate itself implements this.
+pub trait RowIndex: private::Sealed {
+    #[doc(hidden)]
+    fn index(&self, struct_type: &StructType) -> Option<usize>;
+}
+
+/// Allows indexing into a row using a column index.
+impl RowIndex for usize {
+    fn index(&self, struct_type: &StructType) -> Option<usize> {
+        if *self < struct_type.fields().len() {
+            Some(*self)
+        } else {
+            None
+        }
+    }
+}
+
+/// Allows indexing into a row using a column name.
+impl RowIndex for str {
+    fn index(&self, struct_type: &StructType) -> Option<usize> {
+        struct_type.field_index(&self)
+    }
+}
+
+impl<'a, T> RowIndex for &'a T
+where
+    T: RowIndex + ?Sized,
+{
+    fn index(&self, struct_type: &StructType) -> Option<usize> {
+        <T as RowIndex>::index(self, struct_type)
+    }
+}
+
+mod private {
+    pub trait Sealed {}
+
+    impl Sealed for usize {}
+    impl Sealed for str {}
+    impl<'a, T> Sealed for &'a T where T: ?Sized + Sealed {}
+}
+
+/// A row of a result set returned by Cloud Spanner.
+///
+/// Every row of a result set shares the same type.
 pub struct Row<'a> {
     row_type: &'a StructType,
-    columns: &'a Vec<Value>,
+    columns: &'a [Value],
 }
 
 impl<'a> Row<'a> {
-    pub fn get<T>(&'a self, column: usize) -> Result<T, Error>
+    /// Returns the structure of this row (field names and type).
+    pub fn row_type(&'a self) -> &'a StructType {
+        self.row_type
+    }
+
+    /// Returns true when this row has no fields.
+    pub fn is_empty(&'a self) -> bool {
+        self.row_type.fields().is_empty()
+    }
+
+    /// Returns the converted value of the specified column.
+    ///
+    /// An error is returned if the requested column does not exist or if the decoding of the value returns an error.
+    pub fn get<T, R>(&'a self, row_index: R) -> Result<T, Error>
     where
         T: FromSpanner<'a>,
+        R: RowIndex + std::fmt::Display,
     {
-        match self.columns.get(column) {
-            None => Err(Error::Codec(format!("no such column {}", column))),
-            Some(value) => <T as FromSpanner>::from_spanner_nullable(value),
+        self.get_impl(&row_index)
+    }
+
+    /// Returns the converted value of the specified column.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the specified index does not exist or if the value cannot be converted to requested type.
+    pub fn get_unchecked<T, R>(&'a self, row_index: R) -> T
+    where
+        T: FromSpanner<'a>,
+        R: RowIndex + std::fmt::Display,
+    {
+        match self.get_impl(&row_index) {
+            Ok(value) => value,
+            Err(error) => panic!(
+                "unexpected error while reading column {}: {}",
+                row_index, error
+            ),
         }
     }
 
-    pub fn get_unchecked<T>(&'a self, column: usize) -> T
+    fn get_impl<T, R>(&'a self, row_index: &R) -> Result<T, Error>
     where
         T: FromSpanner<'a>,
+        R: RowIndex + std::fmt::Display,
     {
-        self.get(column).unwrap()
+        match row_index.index(self.row_type) {
+            None => Err(Error::Codec(format!("no such column {}", row_index))),
+            Some(index) => <T as FromSpanner>::from_spanner_nullable(&self.columns[index]),
+        }
     }
+}
 
-    pub fn get_by_name<T>(&'a self, column_name: &str) -> Result<T, Error>
-    where
-        T: FromSpanner<'a>,
-    {
-        self.row_type
-            .field_index(column_name)
-            .ok_or_else(|| Error::Codec(format!("no such column: {}", column_name)))
-            .and_then(|idx| self.get(idx))
-    }
-
-    pub fn get_by_name_unchecked<T>(&'a self, column_name: &str) -> T
-    where
-        T: FromSpanner<'a>,
-    {
-        self.get_by_name(column_name).unwrap()
+/// Prints the row's type, but omits the values.
+impl<'a> std::fmt::Debug for Row<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Row")
+            .field("columns", &self.row_type)
+            .finish()
     }
 }
 
@@ -69,6 +141,10 @@ impl TryFrom<proto::ResultSetStats> for Stats {
     }
 }
 
+/// A result set is returned by Cloud Spanner when executing SQL queries.
+///
+/// Contains the structure of each row as well as each row's values.
+/// A result set is not lazy and will eagerly decode all rows in the result set.
 #[derive(Debug)]
 pub struct ResultSet {
     row_type: StructType,
@@ -78,6 +154,7 @@ pub struct ResultSet {
 }
 
 impl ResultSet {
+    /// Returns an iterator over the rows of this result set.
     pub fn iter(&self) -> impl Iterator<Item = Row<'_>> {
         self.rows.iter().map(move |columns| Row {
             row_type: &self.row_type,

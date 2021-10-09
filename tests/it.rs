@@ -34,9 +34,9 @@ async fn test_lib_example() -> Result<(), Error> {
         .await?;
 
     for row in result_set.iter() {
-        let id: u32 = row.get_by_name("id")?;
-        let name: &str = row.get_by_name("name")?;
-        let data: Option<&[u8]> = row.get_by_name("data")?;
+        let id: u32 = row.get("id")?;
+        let name: &str = row.get("name")?;
+        let data: Option<&[u8]> = row.get("data")?;
 
         println!("found person: {} {} {:?}", id, name, data);
     }
@@ -80,8 +80,8 @@ async fn test_read_write() -> Result<(), Error> {
     let row = result_set.iter().next();
     assert!(row.is_some());
     let row = row.unwrap();
-    assert_eq!(row.get_by_name_unchecked::<i32>("a"), 1);
-    assert_eq!(row.get_by_name_unchecked::<&str>("b"), "one");
+    assert_eq!(row.get_unchecked::<i32, _>("a"), 1);
+    assert_eq!(row.get_unchecked::<&str, _>("b"), "one");
 
     Ok(())
 }
