@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use spanner_rs::{Client, DatabaseId, Error, InstanceId, SpannerResource};
+use spanner_rs::{Client, DatabaseId, Error, InstanceId, ProjectId, SpannerResource};
 
 use ctor::ctor;
 use std::{
@@ -72,7 +72,7 @@ pub trait SpannerContainer {
 
     async fn with_instance(&self, instance: &InstanceId) -> &Self {
         self.post(
-            instance.resources_id(),
+            instance.resources_path(),
             format!(r#"{{"instanceId": "{}"}}"#, instance.name()),
         )
         .await;
@@ -87,7 +87,7 @@ pub trait SpannerContainer {
             .join(",");
 
         self.post(
-            database.resources_id(),
+            database.resources_path(),
             format!(
                 r#"{{"createStatement":"CREATE DATABASE `{}`", "extraStatements":[{}]}}"#,
                 database.name(),
@@ -138,7 +138,7 @@ static DOCKER: clients::Cli = {
 #[allow(dead_code)]
 pub(crate) async fn new_client<'a>() -> Result<ClientFixture<'a>, Error> {
     let _ = env_logger::builder().is_test(true).try_init();
-    let instance_id = InstanceId::new("test-project", "test-instance");
+    let instance_id = InstanceId::new(ProjectId::new("test-project"), "test-instance");
     let database_id = DatabaseId::new(instance_id.clone(), "test-database");
     let container = DOCKER.run(SpannerEmulator);
     container

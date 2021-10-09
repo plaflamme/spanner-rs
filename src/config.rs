@@ -1,7 +1,7 @@
 use bb8::{Builder as PoolBuilder, Pool};
 use tonic::transport::ClientTlsConfig;
 
-use crate::{Client, DatabaseId, Error, InstanceId, SessionManager};
+use crate::{Client, DatabaseId, Error, InstanceId, ProjectId, SessionManager};
 use derive_builder::Builder;
 
 /// Configuration for building a [Client].
@@ -98,8 +98,10 @@ impl Config {
                 }
             }
         };
-        let database_id =
-            DatabaseId::new(InstanceId::new(&project_id, &self.instance), &self.database);
+        let database_id = DatabaseId::new(
+            InstanceId::new(ProjectId::new(&project_id), &self.instance),
+            &self.database,
+        );
 
         let connection =
             crate::connection::grpc::connect(self.endpoint, self.tls_config, auth, database_id)

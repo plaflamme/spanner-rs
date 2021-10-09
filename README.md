@@ -29,6 +29,10 @@ It's not recommended to use this in production for any serious workload.
 - [x] SQL read-only, single use, time-bounded transactions
 - [x] SQL read-write transactions with retries
 - [x] Type classes to convert Rust values to/from Cloud Spanner values
+- [ ] Timestamp and Date type support (chrono feature?)
+- [ ] Json type support (serde json feature)
+- [ ] [Streaming result sets](https://cloud.google.com/spanner/docs/reference/rpc/google.spanner.v1#google.spanner.v1.Spanner.ExecuteStreamingSql)
+- [ ] Derive `ToSpanner` and `FromSpanner` for `struct`s
 
 ## Admin Client
 
