@@ -130,7 +130,7 @@ impl ReadContext for ReadOnly {
 /// This extends [ReadContext] to provide additional write functionalities.
 #[async_trait::async_trait]
 pub trait TransactionContext: ReadContext {
-    /// Execute a read-only SQL statement and returns the number of affected rows.
+    /// Execute a DML SQL statement and returns the number of affected rows.
     ///
     /// # Parameters
     ///
