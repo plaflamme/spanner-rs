@@ -1,7 +1,7 @@
 use std::time::Duration;
 use std::time::SystemTime;
 
-use crate::proto::google::spanner::v1 as proto;
+use googapis::google::spanner::v1 as proto;
 
 /// Specifies the bounds withing wich to make reads in Spanner.
 ///

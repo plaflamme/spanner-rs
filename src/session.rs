@@ -2,9 +2,9 @@ use bb8::ManageConnection;
 use bb8::PooledConnection;
 use tokio::sync::Mutex;
 
-use crate::proto::google::spanner::v1 as proto;
 use crate::Connection;
 use crate::Error;
+use googapis::google::spanner::v1 as proto;
 pub(crate) struct Session(String);
 
 impl Session {

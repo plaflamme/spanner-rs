@@ -1,12 +1,12 @@
 use std::convert::TryFrom;
 use std::convert::TryInto;
 
-use crate::proto::google::spanner::v1 as proto;
 use crate::Error;
 use crate::FromSpanner;
 use crate::StructType;
 use crate::Transaction;
 use crate::Value;
+use googapis::google::spanner::v1 as proto;
 
 /// A trait implemented by types that can index into a row.
 ///

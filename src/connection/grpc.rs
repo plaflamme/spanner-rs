@@ -1,12 +1,12 @@
 use super::Connection;
 use crate::auth::AuthFilter;
-use crate::proto::google::spanner::v1 as proto;
 use crate::{
     DatabaseId, Error, ResultSet, Session, SpannerResource, ToSpanner, Transaction,
     TransactionSelector,
 };
 use async_trait::async_trait;
 use gcp_auth::AuthenticationManager;
+use googapis::google::spanner::v1 as proto;
 use proto::{
     execute_sql_request::QueryMode, spanner_client::SpannerClient, CommitRequest,
     CreateSessionRequest, DeleteSessionRequest, ExecuteSqlRequest, RollbackRequest,

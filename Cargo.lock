@@ -478,6 +478,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "googapis"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8894a4cb9b32a73030f2c2dd6a251114d5ec62fb786d011850ae98cdfb8d2ff2"
+dependencies = [
+ "prost",
+ "prost-types",
+ "tonic",
+]
+
+[[package]]
 name = "h2"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1368,6 +1379,7 @@ dependencies = [
  "dyn-clone",
  "env_logger",
  "gcp_auth",
+ "googapis",
  "http",
  "prost",
  "prost-types",
@@ -1376,7 +1388,6 @@ dependencies = [
  "thiserror",
  "tokio",
  "tonic",
- "tonic-build",
  "tonic-types",
  "tower",
 ]
@@ -1609,18 +1620,6 @@ dependencies = [
  "tower-service",
  "tracing",
  "tracing-futures",
-]
-
-[[package]]
-name = "tonic-build"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12b52d07035516c2b74337d2ac7746075e7dcae7643816c1b12c5ff8a7484c08"
-dependencies = [
- "proc-macro2",
- "prost-build",
- "quote",
- "syn",
 ]
 
 [[package]]

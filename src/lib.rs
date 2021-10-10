@@ -104,7 +104,6 @@ mod config;
 mod connection;
 mod error;
 mod from_spanner;
-mod proto;
 mod resource;
 mod result_set;
 mod session;

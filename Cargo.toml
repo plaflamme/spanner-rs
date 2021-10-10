@@ -22,6 +22,7 @@ bigdecimal = "0.3"
 derive_builder = "0.10"
 dyn-clone = "1.0"
 gcp_auth = "0.5"
+googapis = { version = "0.5", features = ["google-spanner-v1"] }
 http = "0.2"
 prost = "0.8"
 prost-types = "0.8"
@@ -38,9 +39,6 @@ dotenv = "0.15"
 env_logger = "0.9.0"
 testcontainers = "0.12"
 reqwest = "0.11"
-
-[build-dependencies]
-tonic-build = "0.5"
 
 [lib]
 doctest = false # TODO: move generated code to another crate to only disable this in that crate.

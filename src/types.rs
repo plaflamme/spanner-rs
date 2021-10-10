@@ -1,4 +1,4 @@
-use crate::proto::google::spanner::v1 as proto;
+use googapis::google::spanner::v1 as proto;
 
 use std::convert::TryFrom;
 
@@ -280,7 +280,7 @@ impl From<Type> for proto::Type {
 #[cfg(test)]
 mod test {
 
-    use crate::proto::google::spanner::v1 as proto;
+    use googapis::google::spanner::v1 as proto;
 
     use super::*;
 
