@@ -3,10 +3,10 @@
 //! # Example
 //!
 //! ```no_run
-//! use spanner_rs::{Client, Error};
+//! use spanner_rs::{Client, Error, ReadContext, TransactionContext};
 //!
 //! #[tokio::main]
-//! fn main() -> Result<(), Error> {
+//! async fn main() -> Result<(), Error> {
 //!     let mut client = Client::configure()
 //!         .project("my-gcp-project")
 //!         .instance("my-instance")
@@ -57,12 +57,17 @@
 //! Reading is done using [ReadContext] which can be obtained using [Client::read_only()] or [Client::read_only_with_bound()].
 //!
 //! Example
-//! ```rust
+//! ```no_run
+//! # use spanner_rs::*;
+//! #[tokio::main]
+//! # async fn main() -> Result<(), crate::Error> {
+//! # let mut client = Client::configure().connect().await?;
 //! let result_set = client
 //!     .read_only()
 //!     .execute_sql("SELECT COUNT(*) AS people FROM person", &[])
 //!     .await?;
 //! let people: u32 = result_set.iter().next().unwrap().get("people")?;
+//! # Ok(()) }
 //! ```
 //!
 //! ## Read Write
@@ -72,16 +77,26 @@
 //! This client encapsulates the necessary retry logic such that applications do not need to implement it themselves.
 //!
 //! Example:
-//! ```rust
-//! client.read_write().run(|tx| {
-//!     // this closure may be invoked more than once
-//!     Box::pin(async move {
-//!         // read
-//!         let rs = tx.execute_sql("...", &[]).await?;
-//!         // write
-//!         tx.execute_update("...", &[]).await?;
+//!
+//! ```no_run
+//! # use spanner_rs::*;
+//! #[tokio::main]
+//! # async fn main() -> Result<(), crate::Error> {
+//! # let mut client = Client::configure().connect().await?;
+//! client
+//!     .read_write()
+//!     .run(|tx| {
+//!         // this closure may be invoked more than once
+//!         Box::pin(async move {
+//!             // read
+//!             let rs = tx.execute_sql("...", &[]).await?;
+//!             // write
+//!             tx.execute_update("...", &[]).await?;
+//!             Ok(())
+//!         })
 //!     })
-//! })
+//!     .await?;
+//! # Ok(()) }
 //! ```
 
 pub use crate::client::*;

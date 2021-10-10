@@ -78,16 +78,21 @@ pub trait ReadContext {
     ///
     /// # Example
     ///
-    ///  ```rust
-    ///  let my_id = 42;
-    ///  let rs = client.read_only().execute_sql(
-    ///      "SELECT id FROM person WHERE id > @my_id",
-    ///      &[("my_id", &my_id)],
-    ///  ).await?;
-    ///  for row in rs.iter() {
-    ///    let id: u32 = row.get("id");
-    ///    println!("id: {}", id);
-    ///  }
+    ///  ```no_run
+    /// # use spanner_rs::{Client, Error, ReadContext};
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Error> {
+    /// # let mut client = Client::configure().connect().await?;
+    /// let my_id = 42;
+    /// let rs = client.read_only().execute_sql(
+    ///     "SELECT id FROM person WHERE id > @my_id",
+    ///     &[("my_id", &my_id)],
+    /// ).await?;
+    /// for row in rs.iter() {
+    ///     let id: u32 = row.get("id")?;
+    ///     println!("id: {}", id);
+    /// }
+    /// # Ok(()) }
     ///  ```
     async fn execute_sql(
         &mut self,
@@ -138,14 +143,29 @@ pub trait TransactionContext: ReadContext {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```no_run
+    /// # use spanner_rs::{Client, Error, TransactionContext};
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Error> {
+    /// # let mut client = Client::configure().connect().await?;
     /// let id = 42;
     /// let name = "ferris";
-    /// let rows = tx.execute_update(
-    ///   "INSERT INTO person(id, name) VALUES (@id, @name)",
-    ///   &[("id", &id), ("name", name)]
-    /// ).await?;
+    /// let rows = client
+    ///     .read_write()
+    ///     .run(|tx| {
+    ///         Box::pin(async move {
+    ///             tx.execute_update(
+    ///                 "INSERT INTO person(id, name) VALUES (@id, @name)",
+    ///                 &[("id", &id), ("name", &name)],
+    ///             )
+    ///             .await
+    ///         })
+    ///     })
+    ///     .await?;
+    ///
     /// println!("Inserted {} row", rows);
+    /// # Ok(()) }
+    /// ```
     async fn execute_update(
         &mut self,
         statement: &str,
@@ -238,8 +258,10 @@ impl TxRunner {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```no_run
+    /// # use spanner_rs::{Client, Error, ReadContext, TransactionContext};
     /// async fn bump_version(id: u32) -> Result<u32, Error> {
+    /// # let mut client = Client::configure().connect().await?;
     ///     client
     ///         .read_write()
     ///         .run(|tx| {
@@ -250,7 +272,7 @@ impl TxRunner {
     ///                         &[("id", &id)],
     ///                     )
     ///                     .await?;
-    ///                 let latest_version = rs.iter().next().unwrap().get::<u32>(0)?;
+    ///                 let latest_version: u32 = rs.iter().next().unwrap().get(0)?;
     ///                 let next_version = latest_version + 1;
     ///                 tx.execute_update(
     ///                     "INSERT INTO versions(id, version) VALUES(@id, @next_version)",
@@ -260,8 +282,12 @@ impl TxRunner {
     ///                 Ok(next_version)
     ///             })
     ///         })
-    ///         .await?
+    ///         .await
     /// }
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Error> {
+    /// # bump_version(42).await?;
+    /// # Ok(()) }
     /// ```
     pub async fn run<'b, O, F>(&'b mut self, mut work: F) -> Result<O, Error>
     where

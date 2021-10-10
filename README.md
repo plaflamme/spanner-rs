@@ -41,10 +41,10 @@ It's not recommended to use this in production for any serious workload.
 # Example
 
 ```rust
-use spanner_rs::{Client, Error};
+use spanner_rs::{Client, Error, ReadContext, TransactionContext};
 
 #[tokio::main]
-fn main() -> Result<(), Error> {
+async fn main() -> Result<(), Error> {
     let mut client = Client::configure()
         .project("my-gcp-project")
         .instance("my-instance")

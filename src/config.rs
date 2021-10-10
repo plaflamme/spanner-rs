@@ -7,13 +7,18 @@ use derive_builder::Builder;
 /// Configuration for building a [Client].
 ///
 /// # Example
-/// ```rust
-/// Config::builder()
+///
+/// ```no_run
+/// use spanner_rs::Config;
+/// #[tokio::main]
+/// # async fn main() -> Result<(), spanner_rs::Error> {
+/// let mut client = Config::builder()
 ///     .project("my-gcp-project")
 ///     .instance("my-spanner-instance")
 ///     .database("my-database")
 ///     .connect()
-///     .await?
+///     .await?;
+/// # Ok(()) }
 /// ```
 #[derive(Builder, Debug)]
 #[builder(pattern = "owned", build_fn(error = "crate::Error"))]
@@ -62,13 +67,17 @@ impl Config {
     ///
     /// # Example
     ///
-    /// ```rust
-    /// Config::builder()
+    /// ```no_run
+    /// use spanner_rs::Config;
+    /// #[tokio::main]
+    /// # async fn main() -> Result<(), spanner_rs::Error> {
+    /// let mut client = Config::builder()
     ///     .project("my-gcp-project")
-    ///     .instance("my-instance")
-    ///     .database("my_database")
+    ///     .instance("my-spanner-instance")
+    ///     .database("my-database")
     ///     .connect()
     ///     .await?;
+    /// # Ok(()) }
     /// ```
     ///
     /// # Authentication
