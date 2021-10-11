@@ -155,6 +155,17 @@ impl ConfigBuilder {
     }
 }
 
+/// Configuration for the internal Cloud Spanner session pool.
+///
+/// # Example
+///
+/// ```
+/// use spanner_rs::{Config, SessionPoolConfig};
+///
+/// # fn main() -> Result<(), spanner_rs::Error> {
+/// Config::builder().session_pool_config(SessionPoolConfig::builder().max_size(100).build()?);
+/// # Ok(()) }
+/// ```
 #[derive(Builder, Default, Debug)]
 #[builder(pattern = "owned", build_fn(error = "crate::Error"))]
 pub struct SessionPoolConfig {
