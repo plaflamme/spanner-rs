@@ -12,12 +12,20 @@ use crate::{Error, Type, Value};
 ///
 /// | Rust Type | Spanner Type |
 /// |---|---|
-/// | `bool` | [`Bool`](https://cloud.google.com/spanner/docs/data-types#boolean_type) |
-/// | `u8`, `i8`, `u16`, `i16`, `u32`, `i32`, `i64` | [`Int64`](https://cloud.google.com/spanner/docs/data-types#integer_type) |
-/// | `f64` | [`Float64`](https://cloud.google.com/spanner/docs/data-types#floating_point_types) |
-/// | `&str`, `String` | [`String`](https://cloud.google.com/spanner/docs/data-types#string_type) |
-/// | `bigdecimal::BigDecimal` | [`Numeric`](https://cloud.google.com/spanner/docs/data-types#numeric_type) |
-/// | `&[u8]`, `Bytes` | [`Bytes`](https://cloud.google.com/spanner/docs/data-types#bytes_type) |
+/// | `bool` | [`BOOL`](https://cloud.google.com/spanner/docs/data-types#boolean_type) |
+/// | `u8`, `i8`, `u16`, `i16`, `u32`, `i32`, `i64` | [`INT64`](https://cloud.google.com/spanner/docs/data-types#integer_type) |
+/// | `f64` | [`FLOAT64`](https://cloud.google.com/spanner/docs/data-types#floating_point_types) |
+/// | `&str`, `String` | [`STRING`](https://cloud.google.com/spanner/docs/data-types#string_type) |
+/// | `&[u8]`, `Bytes` | [`BYTES`](https://cloud.google.com/spanner/docs/data-types#bytes_type) |
+//
+/// The following are provided when the corresponding feature is enabled:
+///
+/// | Feature | Rust Type | Spanner Type |
+/// |---|---|---|
+/// | `json` | `serde_json::Value` | [`JSON`](https://cloud.google.com/spanner/docs/data-types#json_type) |
+/// | `numeric` | `bigdecimal::BigDecimal` | [`NUMERIC`](https://cloud.google.com/spanner/docs/data-types#numeric_type) |
+/// | `temporal` | `chrono::DateTime<Utc>` | [`TIMESTAMP`](https://cloud.google.com/spanner/docs/data-types#timestamp_type) |
+/// | `temporal` | `chrono::NaiveDate` | [`DATE`](https://cloud.google.com/spanner/docs/data-types#date_type) |
 ///
 /// # Nullability
 ///
@@ -154,6 +162,22 @@ simple!(&'a BigDecimal, Numeric, std::convert::identity);
 simple!(Bytes, Bytes, Clone::clone);
 simple!(&'a Bytes, Bytes, std::convert::identity);
 simple!(&'a [u8], Bytes, std::convert::identity);
+#[cfg(feature = "json")]
+simple!(serde_json::Value, Json, Clone::clone);
+#[cfg(feature = "json")]
+simple!(&'a serde_json::Value, Json, std::convert::identity);
+#[cfg(feature = "temporal")]
+simple!(chrono::DateTime<chrono::Utc>, Timestamp, Clone::clone);
+#[cfg(feature = "temporal")]
+simple!(
+    &'a chrono::DateTime<chrono::Utc>,
+    Timestamp,
+    std::convert::identity
+);
+#[cfg(feature = "temporal")]
+simple!(chrono::NaiveDate, Date, Clone::clone);
+#[cfg(feature = "temporal")]
+simple!(&'a chrono::NaiveDate, Date, std::convert::identity);
 
 #[cfg(test)]
 mod test {
