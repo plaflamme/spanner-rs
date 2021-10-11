@@ -108,7 +108,6 @@ pub use crate::resource::*;
 pub use crate::result_set::*;
 pub(crate) use crate::session::*;
 pub use crate::to_spanner::*;
-pub use crate::transaction::TimestampBound;
 pub(crate) use crate::transaction::*;
 pub use crate::types::*;
 pub use crate::value::*;
