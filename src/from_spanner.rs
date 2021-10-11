@@ -1,3 +1,4 @@
+#[cfg(feature = "numeric")]
 use bigdecimal::BigDecimal;
 use prost::bytes::Bytes;
 
@@ -146,7 +147,9 @@ simple!(u32, Int64, TryFrom::try_from);
 simple!(i64, Int64, copy);
 simple!(f64, Float64, copy);
 simple!(bool, Bool, copy);
+#[cfg(feature = "numeric")]
 simple!(BigDecimal, Numeric, Clone::clone);
+#[cfg(feature = "numeric")]
 simple!(&'a BigDecimal, Numeric, std::convert::identity);
 simple!(Bytes, Bytes, Clone::clone);
 simple!(&'a Bytes, Bytes, std::convert::identity);
@@ -156,6 +159,7 @@ simple!(&'a [u8], Bytes, std::convert::identity);
 mod test {
     use super::*;
     use crate::{Type, Value};
+    #[cfg(feature = "numeric")]
     use bigdecimal::{BigDecimal, FromPrimitive};
 
     macro_rules! from_spanner_ok {
@@ -269,6 +273,7 @@ mod test {
         from_spanner_nullable!(f64, Float64);
     }
 
+    #[cfg(feature = "numeric")]
     #[test]
     fn test_from_spanner_numeric() {
         from_spanner_ok!(

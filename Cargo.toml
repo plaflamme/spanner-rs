@@ -10,15 +10,13 @@ keywords = ["database", "spanner", "gcp", "sql", "async"]
 categories = ["database"]
 
 [features]
-# This is only used for testing. Not sure how to make it "private"
-# gcp = []
+numeric = ["bigdecimal"]
 
 [dependencies]
 async-trait = "0.1"
 base64 = "0.13"
 bb8 = "0.7"
-# TODO: put this behind a feature flag
-bigdecimal = "0.3"
+bigdecimal = { version = "0.3", optional = true }
 derive_builder = "0.10"
 dyn-clone = "1.0"
 gcp_auth = "0.5"

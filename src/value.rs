@@ -1,7 +1,9 @@
+#[cfg(feature = "numeric")]
 use std::str::FromStr;
 
 use crate::{Error, StructType, Type};
 
+#[cfg(feature = "numeric")]
 use bigdecimal::BigDecimal;
 use prost::bytes::Bytes;
 use prost_types::value::Kind;
@@ -66,8 +68,9 @@ pub enum Value {
     Float64(f64),
     String(String),
     Bytes(Bytes),
-    Json(String),        // TODO: serde-json feature
-    Numeric(BigDecimal), // TODO: bigdecimal feature
+    Json(String), // TODO: serde-json feature
+    #[cfg(feature = "numeric")]
+    Numeric(BigDecimal),
     // Timestamp,
     // Date,
     Array(Type, Vec<Value>),
@@ -95,6 +98,7 @@ impl Value {
             Value::String(_) => Type::String,
             Value::Bytes(_) => Type::Bytes,
             Value::Json(_) => Type::Json,
+            #[cfg(feature = "numeric")]
             Value::Numeric(_) => Type::Numeric,
             Value::Array(inner, _) => inner.clone(),
             Value::Struct(Struct(struct_type, _)) => Type::Struct(struct_type.clone()),
@@ -141,6 +145,7 @@ impl Value {
                     return Ok(Value::Float64(n));
                 }
             }
+            #[cfg(feature = "numeric")]
             Type::Numeric => {
                 if let Kind::StringValue(s) = kind {
                     return BigDecimal::from_str(&s)
@@ -210,6 +215,7 @@ impl From<Value> for SpannerValue {
             Value::Int64(i) => Kind::StringValue(i.to_string()),
             Value::Json(json) => Kind::StringValue(json),
             Value::Null(tpe) => Kind::NullValue(tpe.code() as i32),
+            #[cfg(feature = "numeric")]
             Value::Numeric(n) => Kind::StringValue(n.to_string()),
             Value::String(s) => Kind::StringValue(s),
             Value::Struct(Struct(_, values)) => Kind::ListValue(ListValue {
@@ -356,6 +362,7 @@ mod test {
         assert_invalid(Type::Json, Kind::BoolValue(true));
     }
 
+    #[cfg(feature = "numeric")]
     #[test]
     fn test_value_numeric() {
         assert_try_from(

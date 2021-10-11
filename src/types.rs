@@ -128,6 +128,7 @@ pub enum Type {
     /// The [NUMERIC](https://cloud.google.com/spanner/docs/data-types#numeric_type) data type.
     ///
     /// * Storage: varies between 6 and 22 bytes, except for the value 0 which uses 1 byte.
+    #[cfg(feature = "numeric")]
     Numeric,
 
     /// The [TIMESTAMP](https://cloud.google.com/spanner/docs/data-types#timestamp_type) data type.
@@ -186,6 +187,7 @@ impl Type {
             Type::String => proto::TypeCode::String,
             Type::Bytes => proto::TypeCode::Bytes,
             Type::Json => proto::TypeCode::Json,
+            #[cfg(feature = "numeric")]
             Type::Numeric => proto::TypeCode::Numeric,
             Type::Timestamp => proto::TypeCode::Timestamp,
             Type::Date => proto::TypeCode::Date,
@@ -214,7 +216,14 @@ impl TryFrom<&proto::Type> for Type {
             Some(proto::TypeCode::String) => Ok(Type::String),
             Some(proto::TypeCode::Bytes) => Ok(Type::Bytes),
             Some(proto::TypeCode::Json) => Ok(Type::Json),
+            #[cfg(feature = "numeric")]
             Some(proto::TypeCode::Numeric) => Ok(Type::Numeric),
+            #[cfg(not(feature = "numeric"))]
+            Some(proto::TypeCode::Numeric) => {
+                panic!(
+                    "NUMERIC type support is not enabled; use the 'numeric' feature to enable it"
+                )
+            }
             Some(proto::TypeCode::Timestamp) => Ok(Type::Timestamp),
             Some(proto::TypeCode::Date) => Ok(Type::Date),
             Some(proto::TypeCode::Array) => value
@@ -329,6 +338,7 @@ mod test {
         test_scalar(proto::TypeCode::String, Type::String);
         test_scalar(proto::TypeCode::Bytes, Type::Bytes);
         test_scalar(proto::TypeCode::Json, Type::Json);
+        #[cfg(feature = "numeric")]
         test_scalar(proto::TypeCode::Numeric, Type::Numeric);
         test_scalar(proto::TypeCode::Timestamp, Type::Timestamp);
         test_scalar(proto::TypeCode::Date, Type::Date);
@@ -358,6 +368,7 @@ mod test {
         test_array_of_scalar(proto::TypeCode::String, Type::String);
         test_array_of_scalar(proto::TypeCode::Bytes, Type::Bytes);
         test_array_of_scalar(proto::TypeCode::Json, Type::Json);
+        #[cfg(feature = "numeric")]
         test_array_of_scalar(proto::TypeCode::Numeric, Type::Numeric);
         test_array_of_scalar(proto::TypeCode::Timestamp, Type::Timestamp);
         test_array_of_scalar(proto::TypeCode::Date, Type::Date);

@@ -1,3 +1,4 @@
+#[cfg(feature = "numeric")]
 use bigdecimal::BigDecimal;
 use prost::bytes::Bytes;
 
@@ -108,6 +109,7 @@ simple!(u32, Int64, i64::from, *);
 simple!(i64, Int64, i64::from, *);
 simple!(String, String, Clone::clone);
 simple!(&str, String, ToString::to_string);
+#[cfg(feature = "numeric")]
 simple!(BigDecimal, Numeric, Clone::clone);
 simple!(Bytes, Bytes, Clone::clone);
 
