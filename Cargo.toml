@@ -10,7 +10,8 @@ keywords = ["database", "spanner", "gcp", "sql", "async"]
 categories = ["database"]
 
 [features]
-default = ["numeric", "temporal"]
+default = ["json", "numeric", "temporal"]
+json = ["serde_json"]
 numeric = ["bigdecimal"]
 temporal = ["chrono"]
 
@@ -27,6 +28,7 @@ googapis = { version = "0.5", features = ["google-spanner-v1"] }
 http = "0.2"
 prost = "0.8"
 prost-types = "0.8"
+serde_json = { version = "1.0", optional = true }
 thiserror = "1.0"
 tokio = { version = "1.12", features = ["rt-multi-thread", "macros", "net"] }
 tonic = { version = "0.5", features = ["tls", "tls-roots"] }

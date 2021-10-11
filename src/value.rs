@@ -12,6 +12,9 @@ use prost_types::{ListValue, Value as SpannerValue};
 #[cfg(feature = "temporal")]
 use chrono::{DateTime, NaiveDate, Utc};
 
+#[cfg(feature = "json")]
+use serde_json::Value as JsValue;
+
 /// The Cloud Spanner value for the [`Struct` type](https://cloud.google.com/spanner/docs/data-types#struct_type).
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Struct(StructType, Vec<Value>);
@@ -71,7 +74,8 @@ pub enum Value {
     Float64(f64),
     String(String),
     Bytes(Bytes),
-    Json(String), // TODO: serde-json feature
+    #[cfg(feature = "json")]
+    Json(JsValue),
     #[cfg(feature = "numeric")]
     Numeric(BigDecimal),
     #[cfg(feature = "temporal")]
@@ -189,9 +193,10 @@ impl Value {
                         .map(|bytes| Value::Bytes(Bytes::from(bytes)));
                 }
             }
+            #[cfg(feature = "json")]
             Type::Json => {
                 if let Kind::StringValue(json) = kind {
-                    return Ok(Value::Json(json));
+                    return Ok(Value::Json(serde_json::de::from_str(&json)?));
                 }
             }
             #[cfg(feature = "temporal")]
@@ -234,7 +239,8 @@ impl From<Value> for SpannerValue {
             Value::Bytes(b) => Kind::StringValue(base64::encode(b)),
             Value::Float64(f) => Kind::NumberValue(f),
             Value::Int64(i) => Kind::StringValue(i.to_string()),
-            Value::Json(json) => Kind::StringValue(json),
+            #[cfg(feature = "json")]
+            Value::Json(json) => Kind::StringValue(serde_json::ser::to_string(&json).unwrap()), /* TODO: TryFrom */
             Value::Null(tpe) => Kind::NullValue(tpe.code() as i32),
             #[cfg(feature = "numeric")]
             Value::Numeric(n) => Kind::StringValue(n.to_string()),
@@ -253,8 +259,6 @@ impl From<Value> for SpannerValue {
 
 #[cfg(test)]
 mod test {
-    #[cfg(feature = "temporal")]
-    use chrono::NaiveDate;
 
     use super::*;
 
@@ -323,6 +327,7 @@ mod test {
     #[cfg(feature = "temporal")]
     #[test]
     fn test_value_date() {
+        use chrono::NaiveDate;
         assert_try_from(
             Type::Date,
             Kind::StringValue("2021-10-01".to_string()),
@@ -390,12 +395,15 @@ mod test {
         );
     }
 
+    #[cfg(feature = "json")]
     #[test]
     fn test_value_json() {
+        use serde_json::json;
+
         assert_try_from(
             Type::Json,
-            Kind::StringValue("this is json".to_string()),
-            Value::Json("this is json".to_string()),
+            Kind::StringValue(r#"{"foo": "bar", "baz":[1,2,3], "qux": true}"#.to_string()),
+            Value::Json(json!({"foo": "bar", "baz": [1,2,3], "qux": true})),
         );
         assert_nullable(Type::Json);
         assert_invalid(Type::Json, Kind::BoolValue(true));

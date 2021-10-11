@@ -123,6 +123,7 @@ pub enum Type {
     /// Note that the JSON document will be canonicalized before storing. Refer to the Cloud Spanner for details.
     ///
     /// * Storage: The number of bytes in UTF-8 encoding of the JSON-formatted string equivalent after canonicalization.
+    #[cfg(feature = "json")]
     Json,
 
     /// The [NUMERIC](https://cloud.google.com/spanner/docs/data-types#numeric_type) data type.
@@ -188,6 +189,7 @@ impl Type {
             Type::Float64 => proto::TypeCode::Float64,
             Type::String => proto::TypeCode::String,
             Type::Bytes => proto::TypeCode::Bytes,
+            #[cfg(feature = "json")]
             Type::Json => proto::TypeCode::Json,
             #[cfg(feature = "numeric")]
             Type::Numeric => proto::TypeCode::Numeric,
@@ -219,7 +221,12 @@ impl TryFrom<&proto::Type> for Type {
             Some(proto::TypeCode::Float64) => Ok(Type::Float64),
             Some(proto::TypeCode::String) => Ok(Type::String),
             Some(proto::TypeCode::Bytes) => Ok(Type::Bytes),
+            #[cfg(feature = "json")]
             Some(proto::TypeCode::Json) => Ok(Type::Json),
+            #[cfg(not(feature = "json"))]
+            Some(proto::TypeCode::Json) => {
+                panic!("JSON type support is not enabled; use the 'json' feature to enable it")
+            }
             #[cfg(feature = "numeric")]
             Some(proto::TypeCode::Numeric) => Ok(Type::Numeric),
             #[cfg(not(feature = "numeric"))]
@@ -351,6 +358,7 @@ mod test {
         test_scalar(proto::TypeCode::Float64, Type::Float64);
         test_scalar(proto::TypeCode::String, Type::String);
         test_scalar(proto::TypeCode::Bytes, Type::Bytes);
+        #[cfg(feature = "json")]
         test_scalar(proto::TypeCode::Json, Type::Json);
         #[cfg(feature = "numeric")]
         test_scalar(proto::TypeCode::Numeric, Type::Numeric);
@@ -383,6 +391,7 @@ mod test {
         test_array_of_scalar(proto::TypeCode::Float64, Type::Float64);
         test_array_of_scalar(proto::TypeCode::String, Type::String);
         test_array_of_scalar(proto::TypeCode::Bytes, Type::Bytes);
+        #[cfg(feature = "json")]
         test_array_of_scalar(proto::TypeCode::Json, Type::Json);
         #[cfg(feature = "numeric")]
         test_array_of_scalar(proto::TypeCode::Numeric, Type::Numeric);

@@ -50,3 +50,10 @@ impl From<ParseError> for Error {
         Error::Codec(format!("unexpected date or datetime format: {}", p))
     }
 }
+
+#[cfg(feature = "json")]
+impl From<serde_json::Error> for Error {
+    fn from(err: serde_json::Error) -> Self {
+        Error::Codec(format!("unexpected json value: {}", err))
+    }
+}
