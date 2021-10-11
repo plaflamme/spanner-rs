@@ -1,4 +1,4 @@
-#[cfg(feature = "numeric")]
+#[cfg(any(feature = "numeric", feature = "temporal"))]
 use std::str::FromStr;
 
 use crate::{Error, StructType, Type};
@@ -8,6 +8,9 @@ use bigdecimal::BigDecimal;
 use prost::bytes::Bytes;
 use prost_types::value::Kind;
 use prost_types::{ListValue, Value as SpannerValue};
+
+#[cfg(feature = "temporal")]
+use chrono::{DateTime, NaiveDate, Utc};
 
 /// The Cloud Spanner value for the [`Struct` type](https://cloud.google.com/spanner/docs/data-types#struct_type).
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -71,8 +74,10 @@ pub enum Value {
     Json(String), // TODO: serde-json feature
     #[cfg(feature = "numeric")]
     Numeric(BigDecimal),
-    // Timestamp,
-    // Date,
+    #[cfg(feature = "temporal")]
+    Timestamp(DateTime<Utc>),
+    #[cfg(feature = "temporal")]
+    Date(NaiveDate),
     Array(Type, Vec<Value>),
     Struct(Struct),
 }
@@ -100,6 +105,10 @@ impl Value {
             Value::Json(_) => Type::Json,
             #[cfg(feature = "numeric")]
             Value::Numeric(_) => Type::Numeric,
+            #[cfg(feature = "temporal")]
+            Value::Timestamp(_) => Type::Timestamp,
+            #[cfg(feature = "temporal")]
+            Value::Date(_) => Type::Date,
             Value::Array(inner, _) => inner.clone(),
             Value::Struct(Struct(struct_type, _)) => Type::Struct(struct_type.clone()),
         }
@@ -185,8 +194,20 @@ impl Value {
                     return Ok(Value::Json(json));
                 }
             }
-            Type::Timestamp => todo!(),
-            Type::Date => todo!(),
+            #[cfg(feature = "temporal")]
+            Type::Timestamp => {
+                if let Kind::StringValue(ts) = kind {
+                    return Ok(Value::Timestamp(
+                        DateTime::parse_from_rfc3339(&ts)?.with_timezone(&Utc),
+                    ));
+                }
+            }
+            #[cfg(feature = "temporal")]
+            Type::Date => {
+                if let Kind::StringValue(d) = kind {
+                    return Ok(Value::Date(NaiveDate::from_str(&d)?));
+                }
+            }
         }
 
         Err(Error::Codec(format!(
@@ -217,6 +238,10 @@ impl From<Value> for SpannerValue {
             Value::Null(tpe) => Kind::NullValue(tpe.code() as i32),
             #[cfg(feature = "numeric")]
             Value::Numeric(n) => Kind::StringValue(n.to_string()),
+            #[cfg(feature = "temporal")]
+            Value::Timestamp(dt) => Kind::StringValue(dt.to_rfc3339()),
+            #[cfg(feature = "temporal")]
+            Value::Date(d) => Kind::StringValue(d.to_string()),
             Value::String(s) => Kind::StringValue(s),
             Value::Struct(Struct(_, values)) => Kind::ListValue(ListValue {
                 values: values.into_iter().map(|value| value.into()).collect(),
@@ -228,6 +253,8 @@ impl From<Value> for SpannerValue {
 
 #[cfg(test)]
 mod test {
+    #[cfg(feature = "temporal")]
+    use chrono::NaiveDate;
 
     use super::*;
 
@@ -291,6 +318,18 @@ mod test {
         );
         assert_nullable(Type::Bytes);
         assert_invalid(Type::Bytes, Kind::NumberValue(6.0));
+    }
+
+    #[cfg(feature = "temporal")]
+    #[test]
+    fn test_value_date() {
+        assert_try_from(
+            Type::Date,
+            Kind::StringValue("2021-10-01".to_string()),
+            Value::Date(NaiveDate::from_ymd(2021, 10, 1)),
+        );
+        assert_nullable(Type::Date);
+        assert_invalid(Type::Date, Kind::BoolValue(true));
     }
 
     #[test]
@@ -437,5 +476,20 @@ mod test {
         );
         assert_nullable(test_tpe.clone());
         assert_invalid(test_tpe, Kind::BoolValue(true));
+    }
+
+    #[cfg(feature = "temporal")]
+    #[test]
+    fn test_value_timestamp() {
+        assert_try_from(
+            Type::Timestamp,
+            Kind::StringValue("2021-10-01T20:56:34.756433987Z".to_string()),
+            Value::Timestamp(DateTime::<Utc>::from_utc(
+                NaiveDate::from_ymd(2021, 10, 1).and_hms_nano(20, 56, 34, 756_433_987),
+                Utc,
+            )),
+        );
+        assert_nullable(Type::Timestamp);
+        assert_invalid(Type::Timestamp, Kind::BoolValue(true));
     }
 }

@@ -1,6 +1,8 @@
 use std::num::TryFromIntError;
 
 use bb8::RunError;
+#[cfg(feature = "temporal")]
+use chrono::ParseError;
 use derive_builder::UninitializedFieldError;
 
 #[derive(thiserror::Error, Debug)]
@@ -39,5 +41,12 @@ impl From<TryFromIntError> for Error {
 impl From<UninitializedFieldError> for Error {
     fn from(value: UninitializedFieldError) -> Self {
         Error::Config(format!("{}", value))
+    }
+}
+
+#[cfg(feature = "temporal")]
+impl From<ParseError> for Error {
+    fn from(p: ParseError) -> Self {
+        Error::Codec(format!("unexpected date or datetime format: {}", p))
     }
 }

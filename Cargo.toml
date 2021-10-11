@@ -10,13 +10,16 @@ keywords = ["database", "spanner", "gcp", "sql", "async"]
 categories = ["database"]
 
 [features]
+default = ["numeric", "temporal"]
 numeric = ["bigdecimal"]
+temporal = ["chrono"]
 
 [dependencies]
 async-trait = "0.1"
 base64 = "0.13"
 bb8 = "0.7"
 bigdecimal = { version = "0.3", optional = true }
+chrono = { version = "0.4", optional = true }
 derive_builder = "0.10"
 dyn-clone = "1.0"
 gcp_auth = "0.5"

@@ -137,6 +137,7 @@ pub enum Type {
     ///
     /// * Storage: 12 bytes
     /// * Range: `0001-01-01 00:00:00` to `9999-12-31 23:59:59.999999999` UTC.
+    #[cfg(feature = "temporal")]
     Timestamp,
 
     /// The [DATE](https://cloud.google.com/spanner/docs/data-types#date_type) data type.
@@ -144,6 +145,7 @@ pub enum Type {
     /// * Storage: 4 bytes
     /// * Range: `0001-01-01` to `9999-12-31`.
     /// * Canonical format: `YYYY-[M]M-[D]D`
+    #[cfg(feature = "temporal")]
     Date,
 
     /// The [ARRAY](https://cloud.google.com/spanner/docs/data-types#array_type) data type.
@@ -189,7 +191,9 @@ impl Type {
             Type::Json => proto::TypeCode::Json,
             #[cfg(feature = "numeric")]
             Type::Numeric => proto::TypeCode::Numeric,
+            #[cfg(feature = "temporal")]
             Type::Timestamp => proto::TypeCode::Timestamp,
+            #[cfg(feature = "temporal")]
             Type::Date => proto::TypeCode::Date,
             Type::Array(_) => proto::TypeCode::Array,
             Type::Struct(_) => proto::TypeCode::Struct,
@@ -224,8 +228,18 @@ impl TryFrom<&proto::Type> for Type {
                     "NUMERIC type support is not enabled; use the 'numeric' feature to enable it"
                 )
             }
+            #[cfg(feature = "temporal")]
             Some(proto::TypeCode::Timestamp) => Ok(Type::Timestamp),
+            #[cfg(not(feature = "temporal"))]
+            Some(proto::TypeCode::Timestamp) => panic!(
+                "TIMESTAMP type support is not enabled; use the 'temporal' feature to enable it"
+            ),
+            #[cfg(feature = "temporal")]
             Some(proto::TypeCode::Date) => Ok(Type::Date),
+            #[cfg(not(feature = "temporal"))]
+            Some(proto::TypeCode::Date) => {
+                panic!("DATE type support is not enabled; use the 'temporal' feature to enable it")
+            }
             Some(proto::TypeCode::Array) => value
                 .array_element_type
                 .as_ref()
@@ -340,7 +354,9 @@ mod test {
         test_scalar(proto::TypeCode::Json, Type::Json);
         #[cfg(feature = "numeric")]
         test_scalar(proto::TypeCode::Numeric, Type::Numeric);
+        #[cfg(feature = "temporal")]
         test_scalar(proto::TypeCode::Timestamp, Type::Timestamp);
+        #[cfg(feature = "temporal")]
         test_scalar(proto::TypeCode::Date, Type::Date);
     }
 
@@ -370,7 +386,9 @@ mod test {
         test_array_of_scalar(proto::TypeCode::Json, Type::Json);
         #[cfg(feature = "numeric")]
         test_array_of_scalar(proto::TypeCode::Numeric, Type::Numeric);
+        #[cfg(feature = "temporal")]
         test_array_of_scalar(proto::TypeCode::Timestamp, Type::Timestamp);
+        #[cfg(feature = "temporal")]
         test_array_of_scalar(proto::TypeCode::Date, Type::Date);
 
         let invalid = proto::Type {
