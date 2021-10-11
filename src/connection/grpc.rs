@@ -121,7 +121,7 @@ impl Connection for GrpcConnection {
         for (name, value) in parameters {
             let value = value.to_spanner()?;
             param_types.insert(name.to_string(), value.spanner_type().into());
-            params.insert(name.to_string(), value.into());
+            params.insert(name.to_string(), value.try_into()?);
         }
 
         self.spanner
