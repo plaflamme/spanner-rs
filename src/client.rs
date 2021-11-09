@@ -304,7 +304,7 @@ impl TxRunner {
         loop {
             ctx.selector = TransactionSelector::Begin;
             ctx.seqno = 0;
-            let result = (work)(&mut ctx).await;
+            let result = work(&mut ctx).await;
 
             let commit_result = if let TransactionSelector::Id(tx) = ctx.selector {
                 if result.is_ok() {
