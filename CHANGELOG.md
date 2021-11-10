@@ -2,6 +2,8 @@
 
 ## [Unreleased] - ReleaseDate
 
+## [0.2.0] - 2021-11-10
+
 ### Added
 
 * [ToSpanner] and [FromSpanner] traits to convert to/from Rust/Spanner types
@@ -14,5 +16,6 @@
 Initial release.
 
 <!-- next-url -->
-[Unreleased]: https://github.com/plaflamme/spanner-rs/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/plaflamme/spanner-rs/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/plaflamme/spanner-rs/compare/v0.1.1...v0.2.0
 [v0.1.1]: https://github.com/plaflamme/spanner-rs/compare/fcf972a...v0.1.1
