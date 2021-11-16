@@ -1,12 +1,12 @@
 use super::Connection;
 use crate::auth::AuthFilter;
 use crate::{
-    DatabaseId, Error, ResultSet, Session, SpannerResource, ToSpanner, Transaction,
+    DatabaseId, Error, ResultSet, Session, SpannerResource, Statement, ToSpanner, Transaction,
     TransactionSelector,
 };
 use async_trait::async_trait;
 use gcp_auth::AuthenticationManager;
-use googapis::google::spanner::v1 as proto;
+use googapis::google::spanner::v1::{self as proto, ExecuteBatchDmlRequest};
 use proto::{
     execute_sql_request::QueryMode, spanner_client::SpannerClient, CommitRequest,
     CreateSessionRequest, DeleteSessionRequest, ExecuteSqlRequest, RollbackRequest,
@@ -141,5 +141,47 @@ impl Connection for GrpcConnection {
             .await?
             .into_inner()
             .try_into()
+    }
+
+    async fn execute_batch_dml(
+        &mut self,
+        session: &Session,
+        selector: &TransactionSelector,
+        statements: &[&Statement],
+        seqno: i64,
+    ) -> Result<Vec<ResultSet>, Error> {
+        let statements = statements
+            .iter()
+            .map(|&statement| statement.try_into())
+            .collect::<Result<Vec<proto::execute_batch_dml_request::Statement>, crate::Error>>()?;
+
+        let response = self
+            .spanner
+            .execute_batch_dml(Request::new(ExecuteBatchDmlRequest {
+                session: session.name().to_string(),
+                transaction: Some(selector.clone().into()),
+                statements,
+                seqno,
+                request_options: None,
+            }))
+            .await?
+            .into_inner();
+
+        let status = response
+            .status
+            .ok_or_else(|| crate::Error::Codec("missing status".to_string()))?;
+
+        if status.code != 0 {
+            return Err(crate::Error::Status(tonic::Status::new(
+                tonic::Code::from_i32(status.code),
+                status.message,
+            )));
+        };
+
+        response
+            .result_sets
+            .into_iter()
+            .map(|rs| rs.try_into())
+            .collect()
     }
 }

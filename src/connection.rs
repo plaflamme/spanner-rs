@@ -1,4 +1,4 @@
-use crate::{Error, ResultSet, Session, ToSpanner, Transaction, TransactionSelector};
+use crate::{Error, ResultSet, Session, Statement, ToSpanner, Transaction, TransactionSelector};
 use async_trait::async_trait;
 use dyn_clone::DynClone;
 
@@ -19,6 +19,14 @@ where
         parameters: &[(&str, &(dyn ToSpanner + Sync))],
         seqno: Option<i64>,
     ) -> Result<ResultSet, Error>;
+
+    async fn execute_batch_dml(
+        &mut self,
+        session: &Session,
+        selector: &TransactionSelector,
+        statements: &[&Statement],
+        seqno: i64,
+    ) -> Result<Vec<ResultSet>, Error>;
 }
 
 dyn_clone::clone_trait_object!(Connection);

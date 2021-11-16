@@ -2,7 +2,7 @@
 
 use std::sync::atomic::{AtomicU16, Ordering};
 
-use spanner_rs::{Error, ReadContext, ResultSet, TransactionContext};
+use spanner_rs::{Error, ReadContext, ResultSet, Statement, TransactionContext};
 
 #[cfg(not(feature = "gcp"))]
 mod spanner_emulator;
@@ -154,6 +154,56 @@ async fn test_read_write_rollback() -> Result<(), Error> {
         .await?;
 
     assert!(rs.iter().next().is_none());
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_execute_updates() -> Result<(), Error> {
+    let mut client = new_client().await?;
+    let row_count = client
+        .read_write()
+        .run(|ctx| {
+            Box::pin(async move {
+                ctx.execute_updates(&[
+                    &Statement {
+                        sql: "INSERT INTO my_table(a,b) VALUES(@a, @b)",
+                        params: &[("a", &1), ("b", &"one")],
+                    },
+                    &Statement {
+                        sql: "INSERT INTO my_table(a,b) VALUES(@a, @b)",
+                        params: &[("a", &2), ("b", &"two")],
+                    },
+                    &Statement {
+                        sql: "UPDATE my_table SET b = @b WHERE a > 0",
+                        params: &[("b", &"foo")],
+                    },
+                ])
+                .await
+            })
+        })
+        .await?;
+
+    assert_eq!(row_count, vec![1, 1, 2]);
+
+    let result_set = client
+        .read_only()
+        .execute_sql("SELECT * FROM my_table ORDER BY a", &[])
+        .await?;
+
+    let mut rows = result_set.iter();
+
+    let row = rows.next();
+    assert!(row.is_some());
+    let row = row.unwrap();
+    assert_eq!(row.get_unchecked::<i32, _>("a"), 1);
+    assert_eq!(row.get_unchecked::<&str, _>("b"), "foo");
+
+    let row = rows.next();
+    assert!(row.is_some());
+    let row = row.unwrap();
+    assert_eq!(row.get_unchecked::<i32, _>("a"), 2);
+    assert_eq!(row.get_unchecked::<&str, _>("b"), "foo");
 
     Ok(())
 }

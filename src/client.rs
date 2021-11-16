@@ -5,6 +5,7 @@ use bb8::{Pool, PooledConnection};
 use tonic::Code;
 
 use crate::result_set::ResultSet;
+use crate::statement::Statement;
 use crate::TimestampBound;
 use crate::ToSpanner;
 use crate::{session::SessionManager, ConfigBuilder, Connection, Error, TransactionSelector};
@@ -171,6 +172,48 @@ pub trait TransactionContext: ReadContext {
         statement: &str,
         parameters: &[(&str, &(dyn ToSpanner + Sync))],
     ) -> Result<i64, Error>;
+
+    /// Execute a batch of DML SQL statements and returns the number of affected rows for each statement.
+    ///
+    /// # Statements
+    ///
+    /// Each DML statement has its own SQL statement and parameters. See [Statement] for more details.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # use spanner_rs::{Client, Error, Statement, TransactionContext};
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Error> {
+    /// # let mut client = Client::configure().connect().await?;
+    /// let id = 42;
+    /// let name = "ferris";
+    /// let new_name = "ferris";
+    /// let rows = client
+    ///     .read_write()
+    ///     .run(|tx| {
+    ///         Box::pin(async move {
+    ///             tx.execute_updates(&[
+    ///                 &Statement {
+    ///                     sql: "INSERT INTO person(id, name) VALUES (@id, @name)",
+    ///                     params: &[("id", &id), ("name", &name)],
+    ///                 },
+    ///                 &Statement {
+    ///                     sql: "UPDATE person SET name = @name WHERE id = 42",
+    ///                     params: &[("name", &new_name)],
+    ///                 },
+    ///             ])
+    ///             .await
+    ///         })
+    ///     })
+    ///     .await?;
+    ///
+    /// // each statement modified a single row
+    /// assert_eq!(rows, vec![1, 1]);
+    ///
+    /// # Ok(()) }
+    /// ```
+    async fn execute_updates(&mut self, statements: &[&Statement]) -> Result<Vec<i64>, Error>;
 }
 
 pub struct Tx<'a> {
@@ -222,6 +265,33 @@ impl<'a> TransactionContext for Tx<'a> {
             .stats
             .row_count
             .ok_or_else(|| Error::Client("no row count available. This may be the result of using execute_update on a statement that did not contain DML.".to_string()))
+    }
+
+    async fn execute_updates(&mut self, statements: &[&Statement]) -> Result<Vec<i64>, Error> {
+        self.seqno += 1;
+        let result_sets = self
+            .connection
+            .execute_batch_dml(&self.session, &self.selector, statements, self.seqno)
+            .await?;
+
+        // TODO: this is brittle, if we forget to do this in some other method, then we risk not committing.
+        if let TransactionSelector::Begin = self.selector {
+            if let Some(tx) = result_sets
+                .iter()
+                .next()
+                .and_then(|rs| rs.transaction.as_ref())
+            {
+                self.selector = TransactionSelector::Id(tx.clone());
+            }
+        }
+
+        result_sets.iter()
+            .map(|rs| {
+                rs.stats
+                .row_count
+                .ok_or_else(|| Error::Client("no row count available. This may be the result of using execute_update on a statement that did not contain DML.".to_string()))
+            })
+            .collect()
     }
 }
 

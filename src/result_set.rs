@@ -167,14 +167,9 @@ impl TryFrom<proto::ResultSet> for ResultSet {
     type Error = crate::Error;
 
     fn try_from(value: proto::ResultSet) -> Result<Self, Self::Error> {
-        let metadata = value
-            .metadata
-            .ok_or_else(|| Self::Error::Codec("missing result set metadata".to_string()))?;
-
-        let row_type = metadata
-            .row_type
-            .ok_or_else(|| Self::Error::Codec("missing row type metadata".to_string()))
-            .and_then(StructType::try_from)?;
+        let stats = value.stats.unwrap_or_default().try_into()?;
+        let metadata = value.metadata.unwrap_or_default();
+        let row_type: StructType = metadata.row_type.unwrap_or_default().try_into()?;
 
         let rows = value
             .rows
@@ -192,7 +187,7 @@ impl TryFrom<proto::ResultSet> for ResultSet {
             row_type,
             rows,
             transaction: metadata.transaction.map(Transaction::from),
-            stats: value.stats.unwrap_or_default().try_into()?,
+            stats,
         })
     }
 }
