@@ -2,7 +2,7 @@
 
 use std::sync::atomic::{AtomicU16, Ordering};
 
-use spanner_rs::{Error, ReadContext, ResultSet, Statement, TransactionContext};
+use spanner_rs::{Error, ReadContext, ResultSet, Statement};
 
 #[cfg(not(feature = "gcp"))]
 mod spanner_emulator;
@@ -16,7 +16,7 @@ use gcp::new_client;
 
 #[tokio::test]
 async fn test_lib_example() -> Result<(), Error> {
-    let mut client = new_client().await?;
+    let client = new_client().await?;
 
     client
         .read_write()
@@ -57,7 +57,7 @@ async fn test_read_only() -> Result<(), Error> {
 
 #[tokio::test]
 async fn test_read_write() -> Result<(), Error> {
-    let mut client = new_client().await?;
+    let client = new_client().await?;
     let row_count = client
         .read_write()
         .run(|ctx| {
@@ -160,7 +160,7 @@ async fn test_read_write_rollback() -> Result<(), Error> {
 
 #[tokio::test]
 async fn test_execute_updates() -> Result<(), Error> {
-    let mut client = new_client().await?;
+    let client = new_client().await?;
     let row_count = client
         .read_write()
         .run(|ctx| {

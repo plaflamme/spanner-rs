@@ -56,7 +56,7 @@ impl Client {
 
     /// Returns a [`TxRunner`] that can be used to execute transactions using a [`TransactionContext`]
     /// to read and write data from/into Cloud Spanner.
-    pub fn read_write(&mut self) -> TxRunner {
+    pub fn read_write(&self) -> TxRunner {
         TxRunner {
             connection: self.connection.clone(),
             session_pool: self.session_pool.clone(),
