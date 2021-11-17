@@ -217,7 +217,7 @@ pub trait TransactionContext: ReadContext {
     async fn execute_updates(&mut self, statements: &[&Statement]) -> Result<Vec<i64>, Error>;
 }
 
-pub struct Tx<'a> {
+struct Tx<'a> {
     connection: Box<dyn Connection>,
     session: PooledConnection<'a, SessionManager>,
     selector: TransactionSelector,
@@ -358,7 +358,9 @@ impl TxRunner {
     /// ```
     pub async fn run<'b, O, F>(&'b mut self, mut work: F) -> Result<O, Error>
     where
-        F: for<'a> FnMut(&'a mut Tx<'b>) -> Pin<Box<dyn Future<Output = Result<O, Error>> + 'a>>,
+        F: for<'a> FnMut(
+            &'a mut dyn TransactionContext,
+        ) -> Pin<Box<dyn Future<Output = Result<O, Error>> + 'a>>,
     {
         let session = self.session_pool.get().await?;
         let mut ctx = Tx {
