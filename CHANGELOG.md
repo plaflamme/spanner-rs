@@ -2,11 +2,15 @@
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+* [ExecuteBatchDml](https://cloud.google.com/spanner/docs/reference/rpc/google.spanner.v1#google.spanner.v1.Spanner.ExecuteBatchDml) support through `TransactionContext::execute_updates`
+
 ## [0.2.0] - 2021-11-10
 
 ### Added
 
-* [ToSpanner] and [FromSpanner] traits to convert to/from Rust/Spanner types
+* `ToSpanner` and `FromSpanner` traits to convert to/from Rust/Spanner types
 * `json` crate feature to enable `Json` Spanner type through the `serde_json` crate
 * `numeric` crate feature to enable `Numeric` Spanner type through the `bigdecimal` crate
 * `temporal` crate feature to enable `Timestamp` and `Date` types through the `chrono` crate
