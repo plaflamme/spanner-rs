@@ -48,7 +48,7 @@ sign-commit = true
 sign-tag = true
 tag-message = "chore: release {{version}}"
 pre-release-commit-message = "chore: release {{version}}"
-post-release-commit-message = "chore: prepare {{version}}"
+post-release-commit-message = "chore: prepare {{next_version}}"
 pre-release-replacements = [
     { file = "CHANGELOG.md", search = "Unreleased", replace = "{{version}}" },
     { file = "CHANGELOG.md", search = "\\.\\.\\.HEAD", replace = "...{{tag_name}}", exactly = 1 },
