@@ -15,7 +15,7 @@ use chrono::{DateTime, NaiveDate, SecondsFormat, Utc};
 #[cfg(feature = "json")]
 use serde_json::Value as JsValue;
 
-/// The Cloud Spanner value for the [`Struct` type](https://cloud.google.com/spanner/docs/data-types#struct_type).
+/// The Cloud Spanner value for the [`Struct`](https://cloud.google.com/spanner/docs/data-types#struct_type) type.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Struct(StructType, Vec<Value>);
 

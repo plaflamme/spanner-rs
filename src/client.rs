@@ -17,7 +17,7 @@ pub struct Client {
 }
 
 impl Client {
-    /// Returns a new [ConfigBuilder] which can be used to configure how to connect to a Cloud Spanner instance and database.
+    /// Returns a new [`ConfigBuilder`] which can be used to configure how to connect to a Cloud Spanner instance and database.
     pub fn configure() -> ConfigBuilder {
         ConfigBuilder::default()
     }
@@ -34,8 +34,8 @@ impl Client {
         }
     }
 
-    /// Returns a [ReadContext] that can be used to read data out of Cloud Spanner.
-    /// The returned context uses [TimestampBound::Strong] consistency for each individual read.
+    /// Returns a [`ReadContext`] that can be used to read data out of Cloud Spanner.
+    /// The returned context uses [`TimestampBound::Strong`] consistency for each individual read.
     pub fn read_only(&self) -> impl ReadContext {
         ReadOnly {
             connection: self.connection.clone(),
@@ -44,7 +44,7 @@ impl Client {
         }
     }
 
-    /// Returns a [ReadContext] that can be used to read data out of Cloud Spanner.
+    /// Returns a [`ReadContext`] that can be used to read data out of Cloud Spanner.
     /// The returned context uses the specified bounded consistency for each individual read.
     pub fn read_only_with_bound(&self, bound: TimestampBound) -> impl ReadContext {
         ReadOnly {
@@ -54,7 +54,8 @@ impl Client {
         }
     }
 
-    /// Returns a [TransactionContext] that can be used to both read and write data from/into Cloud Spanner.
+    /// Returns a [`TxRunner`] that can be used to execute transactions using a [`TransactionContext`]
+    /// to read and write data from/into Cloud Spanner.
     pub fn read_write(&mut self) -> TxRunner {
         TxRunner {
             connection: self.connection.clone(),
@@ -73,7 +74,7 @@ pub trait ReadContext {
     /// As per the [Cloud Spanner documentation](https://cloud.google.com/spanner/docs/sql-best-practices#query-parameters), the statement may contain named parameters, e.g.: `@param_name`.
     /// When such parameters are present in the SQL query, their value must be provided in the second argument to this function.
     ///
-    /// See [ToSpanner] to determine how Rust values can be mapped to Cloud Spanner values.
+    /// See [`ToSpanner`] to determine how Rust values can be mapped to Cloud Spanner values.
     ///
     /// If the parameter values do not line up with parameters in the statement, an [Error] is returned.
     ///
@@ -133,14 +134,14 @@ impl ReadContext for ReadOnly {
 
 /// Defines the interface to read from and write into Cloud Spanner.
 ///
-/// This extends [ReadContext] to provide additional write functionalities.
+/// This extends [`ReadContext`] to provide additional write functionalities.
 #[async_trait::async_trait]
 pub trait TransactionContext: ReadContext {
     /// Execute a DML SQL statement and returns the number of affected rows.
     ///
     /// # Parameters
     ///
-    /// Like its [ReadContext::execute_sql] counterpart, this function also supports query parameters.
+    /// Like its [`ReadContext::execute_sql`] counterpart, this function also supports query parameters.
     ///
     /// # Example
     ///
@@ -177,7 +178,7 @@ pub trait TransactionContext: ReadContext {
     ///
     /// # Statements
     ///
-    /// Each DML statement has its own SQL statement and parameters. See [Statement] for more details.
+    /// Each DML statement has its own SQL statement and parameters. See [`Statement`] for more details.
     ///
     /// # Example
     ///

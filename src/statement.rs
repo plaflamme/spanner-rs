@@ -1,7 +1,9 @@
 use crate::ToSpanner;
+#[cfg(doc)]
+use crate::TransactionContext;
 use googapis::google::spanner::v1 as proto;
 
-/// A single DML statement that can be used in a batch of DML statements using [TransactionContext::execute_updates]
+/// A single DML statement that can be used in a batch of DML statements using [`TransactionContext::execute_updates`]
 pub struct Statement<'a> {
     pub sql: &'a str,
     pub params: &'a [(&'a str, &'a (dyn ToSpanner + Sync))],

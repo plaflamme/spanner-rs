@@ -17,7 +17,7 @@ use crate::{Error, Type, Value};
 /// | `f64` | [`FLOAT64`](https://cloud.google.com/spanner/docs/data-types#floating_point_types) |
 /// | `&str`, `String` | [`STRING`](https://cloud.google.com/spanner/docs/data-types#string_type) |
 /// | `&[u8]`, `Bytes` | [`BYTES`](https://cloud.google.com/spanner/docs/data-types#bytes_type) |
-//
+///
 /// The following are provided when the corresponding feature is enabled:
 ///
 /// | Feature | Rust Type | Spanner Type |

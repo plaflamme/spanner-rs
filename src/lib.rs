@@ -53,10 +53,11 @@
 //!
 //! ## Read Only
 //!
-//! Reads are done within "single-use" transactions and can be bounded to determine what data is visible to them, see [TimestampBound].
-//! Reading is done using [ReadContext] which can be obtained using [Client::read_only()] or [Client::read_only_with_bound()].
+//! Reads are done within "single-use" transactions and can be bounded to determine what data is visible to them, see [`TimestampBound`].
+//! Reading is done using [`ReadContext`] which can be obtained using [`Client::read_only()`] or [`Client::read_only_with_bound()`].
 //!
-//! Example
+//! Example:
+//!
 //! ```no_run
 //! # use spanner_rs::*;
 //! #[tokio::main]
@@ -72,7 +73,7 @@
 //!
 //! ## Read Write
 //!
-//! Read / write transactions are done through [TransactionContext] which extends [ReadContext] to allow writes.
+//! Read / write transactions are done through [`TransactionContext`] which extends [`ReadContext`] to allow writes.
 //! When a transaction that conflicts with another tries to commit, Cloud Spanner will reject one of them let the client know it may retry.
 //! This client encapsulates the necessary retry logic such that applications do not need to implement it themselves.
 //!
@@ -98,6 +99,10 @@
 //!     .await?;
 //! # Ok(()) }
 //! ```
+//!
+//! ## Authentication
+//!
+//! Authentication uses the [`gcp_auth`] crate which supports several authentication methods.
 
 pub use crate::client::*;
 pub use crate::config::*;
@@ -109,7 +114,7 @@ pub use crate::result_set::*;
 pub(crate) use crate::session::*;
 pub use crate::statement::*;
 pub use crate::to_spanner::*;
-pub(crate) use crate::transaction::*;
+pub use crate::transaction::*;
 pub use crate::types::*;
 pub use crate::value::*;
 

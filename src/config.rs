@@ -4,7 +4,7 @@ use tonic::transport::ClientTlsConfig;
 use crate::{Client, DatabaseId, Error, InstanceId, ProjectId, SessionManager};
 use derive_builder::Builder;
 
-/// Configuration for building a [Client].
+/// Configuration for building a [`Client`].
 ///
 /// # Example
 ///
@@ -58,12 +58,12 @@ pub struct Config {
 }
 
 impl Config {
-    /// Returns a new [ConfigBuilder] for configuring a new client.
+    /// Returns a new [`ConfigBuilder`] for configuring a new client.
     pub fn builder() -> ConfigBuilder {
         ConfigBuilder::default()
     }
 
-    /// Connect to Cloud Spanner and return a new [Client].
+    /// Connect to Cloud Spanner and return a new [`Client`].
     ///
     /// # Example
     ///
@@ -82,7 +82,7 @@ impl Config {
     ///
     /// # Authentication
     ///
-    /// Authentication uses the [gcp_auth] crate which supports several authentication methods.
+    /// Authentication uses the [`gcp_auth`] crate which supports several authentication methods.
     /// In a typical production environment, nothing needs to be programatically provided during configuration as
     /// credentials are normally obtained from the environment (i.e.: `GOOGLE_APPLICATION_CREDENTIALS`).
     ///

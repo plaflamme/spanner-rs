@@ -2,7 +2,7 @@ use googapis::google::spanner::v1 as proto;
 
 use std::convert::TryFrom;
 
-/// The Cloud Spanner [`Struct` type](https://cloud.google.com/spanner/docs/data-types#struct_type) which is composed of optionally named fields and their data type.
+/// The Cloud Spanner [`Struct`](https://cloud.google.com/spanner/docs/data-types#struct_type) type which is composed of optionally named fields and their data type.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct StructType(Vec<(Option<String>, Type)>);
 
@@ -88,37 +88,37 @@ impl TryFrom<&proto::StructType> for StructType {
 /// Refer to the Cloud Spanner documentation for detailed information about individual data types.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Type {
-    /// The [BOOL](https://cloud.google.com/spanner/docs/data-types#boolean_type) data type.
+    /// The [`BOOL`](https://cloud.google.com/spanner/docs/data-types#boolean_type) data type.
     ///
     /// * Storage size: 1 byte
     Bool,
 
-    /// The [INT64](https://cloud.google.com/spanner/docs/data-types#integer_type) data type.
+    /// The [`INT64`](https://cloud.google.com/spanner/docs/data-types#integer_type) data type.
     ///
     /// * Storage size: 8 bytes
     /// * Range: `-9,223,372,036,854,775,808` to `9,223,372,036,854,775,807`
     Int64,
 
-    /// The [FLOAT64](https://cloud.google.com/spanner/docs/data-types#floating_point_types) data type.
+    /// The [`FLOAT64`](https://cloud.google.com/spanner/docs/data-types#floating_point_types) data type.
     ///
     /// Supports the special `NaN`, `+inf` and `-inf` values.
     ///
     /// * Storage size: 8 bytes
     Float64,
 
-    /// The [STRING](https://cloud.google.com/spanner/docs/data-types#string_type) data type.
+    /// The [`STRING`](https://cloud.google.com/spanner/docs/data-types#string_type) data type.
     ///
     /// Must be valid UTF-8.
     ///
     /// * Storage: the number of bytes in its UTF-8 encoding
     String,
 
-    /// The [BYTES](https://cloud.google.com/spanner/docs/data-types#bytes_type) data type.
+    /// The [`BYTES`](https://cloud.google.com/spanner/docs/data-types#bytes_type) data type.
     ///
     /// * Storage: the number of bytes
     Bytes,
 
-    /// The [JSON](https://cloud.google.com/spanner/docs/data-types#json_type) data type.
+    /// The [`JSON`](https://cloud.google.com/spanner/docs/data-types#json_type) data type.
     ///
     /// Note that the JSON document will be canonicalized before storing. Refer to the Cloud Spanner for details.
     ///
@@ -126,13 +126,13 @@ pub enum Type {
     #[cfg(feature = "json")]
     Json,
 
-    /// The [NUMERIC](https://cloud.google.com/spanner/docs/data-types#numeric_type) data type.
+    /// The [`NUMERIC`](https://cloud.google.com/spanner/docs/data-types#numeric_type) data type.
     ///
     /// * Storage: varies between 6 and 22 bytes, except for the value 0 which uses 1 byte.
     #[cfg(feature = "numeric")]
     Numeric,
 
-    /// The [TIMESTAMP](https://cloud.google.com/spanner/docs/data-types#timestamp_type) data type.
+    /// The [`TIMESTAMP`](https://cloud.google.com/spanner/docs/data-types#timestamp_type) data type.
     ///
     /// Refer to the Cloud Spanner documentation for details on timezones and format when used in SQL statements.
     ///
@@ -141,7 +141,7 @@ pub enum Type {
     #[cfg(feature = "temporal")]
     Timestamp,
 
-    /// The [DATE](https://cloud.google.com/spanner/docs/data-types#date_type) data type.
+    /// The [`DATE`](https://cloud.google.com/spanner/docs/data-types#date_type) data type.
     ///
     /// * Storage: 4 bytes
     /// * Range: `0001-01-01` to `9999-12-31`.
@@ -149,7 +149,7 @@ pub enum Type {
     #[cfg(feature = "temporal")]
     Date,
 
-    /// The [ARRAY](https://cloud.google.com/spanner/docs/data-types#array_type) data type.
+    /// The [`ARRAY`](https://cloud.google.com/spanner/docs/data-types#array_type) data type.
     /// Can contain elements of any other type except `Array` (i.e.: arrays of arrays are not allowed).
     /// Can contain `NULL` elements.
     /// A `NULL` value of type array and an empty array are different values.
@@ -160,7 +160,7 @@ pub enum Type {
         Box<Type>,
     ),
 
-    /// The [STRUCT](https://cloud.google.com/spanner/docs/data-types#struct_type) data type.
+    /// The [`STRUCT`](https://cloud.google.com/spanner/docs/data-types#struct_type) data type.
     Struct(StructType),
 }
 
