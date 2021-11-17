@@ -86,7 +86,7 @@ pub trait ReadContext {
     /// # async fn main() -> Result<(), Error> {
     /// # let mut client = Client::configure().connect().await?;
     /// let my_id = 42;
-    /// let rs = client.read_only().execute_sql(
+    /// let rs = client.read_only().execute_query(
     ///     "SELECT id FROM person WHERE id > @my_id",
     ///     &[("my_id", &my_id)],
     /// ).await?;
@@ -96,7 +96,7 @@ pub trait ReadContext {
     /// }
     /// # Ok(()) }
     ///  ```
-    async fn execute_sql(
+    async fn execute_query(
         &mut self,
         statement: &str,
         parameters: &[(&str, &(dyn ToSpanner + Sync))],
@@ -111,7 +111,7 @@ struct ReadOnly {
 
 #[async_trait::async_trait]
 impl ReadContext for ReadOnly {
-    async fn execute_sql(
+    async fn execute_query(
         &mut self,
         statement: &str,
         parameters: &[(&str, &(dyn ToSpanner + Sync))],
@@ -226,7 +226,7 @@ struct Tx<'a> {
 
 #[async_trait::async_trait]
 impl<'a> ReadContext for Tx<'a> {
-    async fn execute_sql(
+    async fn execute_query(
         &mut self,
         statement: &str,
         parameters: &[(&str, &(dyn ToSpanner + Sync))],
@@ -262,7 +262,7 @@ impl<'a> TransactionContext for Tx<'a> {
         statement: &str,
         parameters: &[(&str, &(dyn ToSpanner + Sync))],
     ) -> Result<i64, Error> {
-        self.execute_sql(statement, parameters).await?
+        self.execute_query(statement, parameters).await?
             .stats
             .row_count
             .ok_or_else(|| Error::Client("no row count available. This may be the result of using execute_update on a statement that did not contain DML.".to_string()))
@@ -334,7 +334,7 @@ impl TxRunner {
     ///         .run(|tx| {
     ///             Box::pin(async move {
     ///                 let rs = tx
-    ///                     .execute_sql(
+    ///                     .execute_query(
     ///                         "SELECT MAX(version) FROM versions WHERE id = @id",
     ///                         &[("id", &id)],
     ///                     )

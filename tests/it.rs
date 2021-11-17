@@ -30,7 +30,7 @@ async fn test_lib_example() -> Result<(), Error> {
 
     let result_set = client
         .read_only()
-        .execute_sql("SELECT * FROM person", &[])
+        .execute_query("SELECT * FROM person", &[])
         .await?;
 
     for row in result_set.iter() {
@@ -49,7 +49,9 @@ async fn test_read_only() -> Result<(), Error> {
     let client = new_client().await?;
     let mut read_only = client.read_only();
 
-    let result_set = read_only.execute_sql("SELECT * FROM my_table", &[]).await?;
+    let result_set = read_only
+        .execute_query("SELECT * FROM my_table", &[])
+        .await?;
     let row = result_set.iter().next();
     assert!(row.is_none());
     Ok(())
@@ -75,7 +77,7 @@ async fn test_read_write() -> Result<(), Error> {
 
     let result_set = client
         .read_only()
-        .execute_sql("SELECT * FROM my_table", &[])
+        .execute_query("SELECT * FROM my_table", &[])
         .await?;
     let row = result_set.iter().next();
     assert!(row.is_some());
@@ -96,14 +98,14 @@ async fn test_read_write_abort() -> Result<(), Error> {
             .run(|ctx| {
                 evaluations.fetch_add(1, Ordering::SeqCst);
                 Box::pin(async move {
-                    let rs = ctx.execute_sql("SELECT * FROM my_table", &[]).await?;
+                    let rs = ctx.execute_query("SELECT * FROM my_table", &[]).await?;
                     let rows = rs.iter().count();
                     ctx.execute_update(
                         "INSERT INTO my_table(a,b) VALUES(@a, @b)",
                         &[("a", &(rows as u32)), ("b", &rows.to_string())],
                     )
                     .await?;
-                    ctx.execute_sql("SELECT * FROM my_table", &[]).await
+                    ctx.execute_query("SELECT * FROM my_table", &[]).await
                 })
             })
             .await
@@ -150,7 +152,7 @@ async fn test_read_write_rollback() -> Result<(), Error> {
     let rs = new_client()
         .await?
         .read_only()
-        .execute_sql("SELECT * FROM my_table WHERE a = 42", &[])
+        .execute_query("SELECT * FROM my_table WHERE a = 42", &[])
         .await?;
 
     assert!(rs.iter().next().is_none());
@@ -188,7 +190,7 @@ async fn test_execute_updates() -> Result<(), Error> {
 
     let result_set = client
         .read_only()
-        .execute_sql("SELECT * FROM my_table ORDER BY a", &[])
+        .execute_query("SELECT * FROM my_table ORDER BY a", &[])
         .await?;
 
     let mut rows = result_set.iter();

@@ -28,7 +28,7 @@
 //!
 //!     let result_set = client
 //!         .read_only()
-//!         .execute_sql("SELECT * FROM person", &[])
+//!         .execute_query("SELECT * FROM person", &[])
 //!         .await?;
 //!
 //!     for row in result_set.iter() {
@@ -65,7 +65,7 @@
 //! # let mut client = Client::configure().connect().await?;
 //! let result_set = client
 //!     .read_only()
-//!     .execute_sql("SELECT COUNT(*) AS people FROM person", &[])
+//!     .execute_query("SELECT COUNT(*) AS people FROM person", &[])
 //!     .await?;
 //! let people: u32 = result_set.iter().next().unwrap().get("people")?;
 //! # Ok(()) }
@@ -90,7 +90,7 @@
 //!         // this closure may be invoked more than once
 //!         Box::pin(async move {
 //!             // read
-//!             let rs = tx.execute_sql("...", &[]).await?;
+//!             let rs = tx.execute_query("...", &[]).await?;
 //!             // write
 //!             tx.execute_update("...", &[]).await?;
 //!             Ok(())

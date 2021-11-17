@@ -66,7 +66,7 @@ async fn main() -> Result<(), Error> {
 
     let result_set = client
         .read_only()
-        .execute_sql("SELECT * FROM person", &[])
+        .execute_query("SELECT * FROM person", &[])
         .await?;
 
     for row in result_set.iter() {
