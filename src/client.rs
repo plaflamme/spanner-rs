@@ -276,11 +276,7 @@ impl<'a> TransactionContext for Tx<'a> {
 
         // TODO: this is brittle, if we forget to do this in some other method, then we risk not committing.
         if let TransactionSelector::Begin = self.selector {
-            if let Some(tx) = result_sets
-                .iter()
-                .next()
-                .and_then(|rs| rs.transaction.as_ref())
-            {
+            if let Some(tx) = result_sets.get(0).and_then(|rs| rs.transaction.as_ref()) {
                 self.selector = TransactionSelector::Id(tx.clone());
             }
         }
