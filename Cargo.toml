@@ -30,7 +30,7 @@ prost = "0.9"
 prost-types = "0.9"
 serde_json = { version = "1.0", optional = true }
 thiserror = "1.0"
-tokio = { version = "1.14", features = ["rt-multi-thread", "macros", "net"] }
+tokio = { version = "1.15", features = ["rt-multi-thread", "macros", "net"] }
 tonic = { version = "0.6", features = ["tls", "tls-roots"] }
 tonic-types = "0.4"
 tower = { version = "0.4", features = ["filter"] }
