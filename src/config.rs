@@ -130,6 +130,7 @@ impl Config {
 impl ConfigBuilder {
     /// Disable TLS when connecting to Spanner. This usually only makes sense when using the emulator.
     /// Note that this also disables authentication to prevent sending secrets in plain text.
+    #[must_use]
     pub fn disable_tls(self) -> Self {
         Self {
             tls_config: Some(None),
@@ -139,12 +140,14 @@ impl ConfigBuilder {
 
     /// Configure the client to connect to a Spanner emulator, e.g.: `http://localhost:9092`
     /// This disables TLS.
+    #[must_use]
     pub fn with_emulator_host(self, endpoint: String) -> Self {
         self.endpoint(endpoint).disable_tls()
     }
 
     /// Configure the client to connect to a Spanner emulator running on localhost and using the specified port.
     /// This disables TLS.
+    #[must_use]
     pub fn with_emulator_grpc_port(self, port: u16) -> Self {
         self.with_emulator_host(format!("http://localhost:{}", port))
     }
