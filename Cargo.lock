@@ -410,9 +410,9 @@ dependencies = [
 
 [[package]]
 name = "gcp_auth"
-version = "0.6.1"
+version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4e41af881b65785e78b2b01437cbb01a125c06a7655c91383299970ade8280a5"
+checksum = "31fd06c0c3e84eb055135d315df852cf96f5d5308da4e8af39a923962a42ea19"
 dependencies = [
  "async-trait",
  "base64",
