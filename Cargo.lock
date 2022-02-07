@@ -410,16 +410,16 @@ dependencies = [
 
 [[package]]
 name = "gcp_auth"
-version = "0.6.1"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4e41af881b65785e78b2b01437cbb01a125c06a7655c91383299970ade8280a5"
+checksum = "9d18fd21c98b8562b26c0436a3d7689c68cd94489ba1eb597d8b823e65abf2e1"
 dependencies = [
  "async-trait",
  "base64",
  "dirs-next",
  "hyper",
  "hyper-rustls",
- "log",
+ "ring",
  "rustls 0.20.2",
  "rustls-pemfile",
  "serde",
@@ -427,6 +427,8 @@ dependencies = [
  "thiserror",
  "time 0.3.5",
  "tokio",
+ "tracing",
+ "tracing-futures",
  "url",
  "which",
 ]
@@ -1702,9 +1704,9 @@ checksum = "360dfd1d6d30e05fda32ace2c8c70e9c0a9da713275777f5a4dbb8a1893930c6"
 
 [[package]]
 name = "tracing"
-version = "0.1.26"
+version = "0.1.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "09adeb8c97449311ccd28a427f96fb563e7fd31aabf994189879d9da2394b89d"
+checksum = "2d8d93354fe2a8e50d5953f5ae2e47a3fc2ef03292e7ea46e3cc38f549525fb9"
 dependencies = [
  "cfg-if",
  "log",
@@ -1715,9 +1717,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-attributes"
-version = "0.1.15"
+version = "0.1.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c42e6fa53307c8a17e4ccd4dc81cf5ec38db9209f59b222210375b54ee40d1e2"
+checksum = "8276d9a4a3a558d7b7ad5303ad50b53d58264641b82914b7ada36bd762e7a716"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1726,9 +1728,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-core"
-version = "0.1.19"
+version = "0.1.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2ca517f43f0fb96e0c3072ed5c275fe5eece87e8cb52f4a77b69226d3b1c9df8"
+checksum = "03cfcb51380632a72d3111cb8d3447a8d908e577d31beeac006f836383d29a23"
 dependencies = [
  "lazy_static",
 ]

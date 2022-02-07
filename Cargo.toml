@@ -23,7 +23,7 @@ bigdecimal = { version = "0.3", optional = true }
 chrono = { version = "0.4", optional = true }
 derive_builder = "0.10"
 dyn-clone = "1.0"
-gcp_auth = "0.6"
+gcp_auth = "0.7"
 googapis = { version = "0.6", features = ["google-spanner-v1"] }
 http = "0.2"
 prost = "0.9"
