@@ -1,7 +1,7 @@
 use std::time::Duration;
 use std::time::SystemTime;
 
-use googapis::google::spanner::v1 as proto;
+use google_api_proto::google::spanner::v1 as proto;
 
 /// Specifies the bounds withing wich to make reads in Spanner.
 ///
@@ -111,7 +111,7 @@ pub(crate) struct Transaction {
 }
 
 impl Transaction {
-    pub(crate) fn id(&self) -> &Vec<u8> {
+    pub(crate) fn id(&self) -> &prost::bytes::Bytes {
         &self.spanner_tx.id
     }
 }

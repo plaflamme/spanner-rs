@@ -1,7 +1,7 @@
 use crate::ToSpanner;
 #[cfg(doc)]
 use crate::TransactionContext;
-use googapis::google::spanner::v1 as proto;
+use google_api_proto::google::spanner::v1 as proto;
 
 /// A single DML statement that can be used in a batch of DML statements using [`TransactionContext::execute_updates`]
 pub struct Statement<'a> {
@@ -16,7 +16,7 @@ impl<'a> TryFrom<&Statement<'a>> for proto::execute_batch_dml_request::Statement
         value: &Statement,
     ) -> Result<proto::execute_batch_dml_request::Statement, Self::Error> {
         let mut params = std::collections::BTreeMap::new();
-        let mut param_types = std::collections::HashMap::new();
+        let mut param_types = std::collections::BTreeMap::new();
         for (name, value) in value.params {
             let value = value.to_spanner()?;
             param_types.insert(name.to_string(), value.spanner_type().into());

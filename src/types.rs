@@ -1,4 +1,4 @@
-use googapis::google::spanner::v1 as proto;
+use google_api_proto::google::spanner::v1::{self as proto, TypeAnnotationCode};
 
 use std::convert::TryFrom;
 
@@ -278,6 +278,7 @@ impl From<&Type> for proto::Type {
                 code: value.code() as i32,
                 array_element_type: Some(Box::new((*inner).as_ref().into())),
                 struct_type: None,
+                type_annotation: TypeAnnotationCode::Unspecified.into(),
             },
             Type::Struct(StructType(fields)) => proto::Type {
                 code: value.code() as i32,
@@ -291,11 +292,13 @@ impl From<&Type> for proto::Type {
                         })
                         .collect(),
                 }),
+                type_annotation: TypeAnnotationCode::Unspecified.into(),
             },
             other => proto::Type {
                 code: other.code() as i32,
                 array_element_type: None,
                 struct_type: None,
+                type_annotation: TypeAnnotationCode::Unspecified.into(),
             },
         }
     }
@@ -310,7 +313,7 @@ impl From<Type> for proto::Type {
 #[cfg(test)]
 mod test {
 
-    use googapis::google::spanner::v1 as proto;
+    use google_api_proto::google::spanner::v1 as proto;
 
     use super::*;
 
@@ -319,6 +322,7 @@ mod test {
             code: code as i32,
             array_element_type: None,
             struct_type: None,
+            type_annotation: TypeAnnotationCode::Unspecified.into(),
         }
     }
 
@@ -327,6 +331,7 @@ mod test {
             code: proto::TypeCode::Array as i32,
             array_element_type: Some(Box::new(underlying)),
             struct_type: None,
+            type_annotation: TypeAnnotationCode::Unspecified.into(),
         }
     }
 
@@ -343,6 +348,7 @@ mod test {
                     })
                     .collect(),
             }),
+            type_annotation: TypeAnnotationCode::Unspecified.into(),
         }
     }
 
@@ -380,6 +386,7 @@ mod test {
                 code: proto::TypeCode::Array as i32,
                 array_element_type: Some(Box::new(inner.into())),
                 struct_type: None,
+                type_annotation: TypeAnnotationCode::Unspecified.into(),
             }
         )
     }
@@ -404,6 +411,7 @@ mod test {
             code: proto::TypeCode::Array as i32,
             array_element_type: None,
             struct_type: None,
+            type_annotation: TypeAnnotationCode::Unspecified.into(),
         };
 
         assert!(Type::try_from(invalid).is_err());
@@ -467,9 +475,11 @@ mod test {
                             code: proto::TypeCode::Bool as i32,
                             array_element_type: None,
                             struct_type: None,
+                            type_annotation: TypeAnnotationCode::Unspecified.into(),
                         })
                     }]
-                })
+                }),
+                type_annotation: TypeAnnotationCode::Unspecified.into(),
             }
         );
 
@@ -477,6 +487,7 @@ mod test {
             code: proto::TypeCode::Struct as i32,
             array_element_type: None,
             struct_type: None,
+            type_annotation: TypeAnnotationCode::Unspecified.into(),
         };
 
         assert!(Type::try_from(invalid).is_err());

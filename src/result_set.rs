@@ -6,7 +6,7 @@ use crate::FromSpanner;
 use crate::StructType;
 use crate::Transaction;
 use crate::Value;
-use googapis::google::spanner::v1 as proto;
+use google_api_proto::google::spanner::v1 as proto;
 
 /// A trait implemented by types that can index into a row.
 ///

@@ -3,7 +3,7 @@ use tokio::sync::Mutex;
 
 use crate::Connection;
 use crate::Error;
-use googapis::google::spanner::v1 as proto;
+use google_api_proto::google::spanner::v1 as proto;
 pub(crate) struct Session(String);
 
 impl Session {

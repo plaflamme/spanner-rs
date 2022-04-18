@@ -24,15 +24,15 @@ chrono = { version = "0.4", optional = true }
 derive_builder = "0.11"
 dyn-clone = "1.0"
 gcp_auth = "0.7"
-googapis = { version = "0.6", features = ["google-spanner-v1"] }
+google-api-proto = { version = "1", features = ["google-spanner-v1"] }
 http = "0.2"
-prost = "0.10"
+prost = "0.9"
 prost-types = "0.9"
 serde_json = { version = "1.0", optional = true }
 thiserror = "1.0"
 tokio = { version = "1.16", features = ["rt-multi-thread", "macros", "net"] }
 tonic = { version = "0.6", features = ["tls", "tls-roots"] }
-tonic-types = "0.4"
+tonic-types = "0.5"
 tower = { version = "0.4", features = ["filter"] }
 
 [dev-dependencies]

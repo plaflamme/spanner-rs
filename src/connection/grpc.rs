@@ -6,7 +6,7 @@ use crate::{
 };
 use async_trait::async_trait;
 use gcp_auth::AuthenticationManager;
-use googapis::google::spanner::v1::{self as proto, ExecuteBatchDmlRequest};
+use google_api_proto::google::spanner::v1::{self as proto, ExecuteBatchDmlRequest};
 use proto::{
     execute_sql_request::QueryMode, spanner_client::SpannerClient, CommitRequest,
     CreateSessionRequest, DeleteSessionRequest, ExecuteSqlRequest, RollbackRequest,
@@ -54,10 +54,9 @@ pub(crate) async fn connect(
         .option_layer(auth_layer)
         .service(channel);
 
-    Ok(Box::new(GrpcConnection {
-        database,
-        spanner: SpannerClient::new(channel),
-    }))
+    let spanner = SpannerClient::new(channel);
+
+    Ok(Box::new(GrpcConnection { database, spanner }))
 }
 
 #[async_trait]
@@ -116,7 +115,7 @@ impl Connection for GrpcConnection {
         seqno: Option<i64>,
     ) -> Result<ResultSet, Error> {
         let mut params = std::collections::BTreeMap::new();
-        let mut param_types = std::collections::HashMap::new();
+        let mut param_types = std::collections::BTreeMap::new();
 
         for (name, value) in parameters {
             let value = value.to_spanner()?;
@@ -131,9 +130,9 @@ impl Connection for GrpcConnection {
                 sql: statement.to_string(),
                 params: Some(prost_types::Struct { fields: params }),
                 param_types,
-                resume_token: vec![],
+                resume_token: prost::bytes::Bytes::default(),
                 query_mode: QueryMode::Normal as i32,
-                partition_token: vec![],
+                partition_token: prost::bytes::Bytes::default(),
                 seqno: seqno.unwrap_or(0), // ignored for queries, required for DML
                 query_options: None,
                 request_options: None,
