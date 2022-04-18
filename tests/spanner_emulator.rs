@@ -1,63 +1,39 @@
-use async_trait::async_trait;
 use spanner_rs::{Client, DatabaseId, Error, InstanceId, ProjectId, SpannerResource};
 
 use ctor::ctor;
-use std::{
-    collections::HashMap,
-    ops::{Deref, DerefMut},
-};
-use testcontainers::{clients, Container, Docker, Image, WaitForMessage};
+use std::ops::{Deref, DerefMut};
+use testcontainers::{clients, core::WaitFor, Container, Image};
 
 #[derive(Default, Debug, Clone)]
 pub struct SpannerEmulator;
 impl Image for SpannerEmulator {
-    type Args = Vec<String>;
-    type EnvVars = HashMap<String, String>;
-    type Volumes = HashMap<String, String>;
-    type EntryPoint = std::convert::Infallible;
+    type Args = ();
 
-    fn descriptor(&self) -> String {
-        "gcr.io/cloud-spanner-emulator/emulator".to_string()
+    fn name(&self) -> String {
+        "gcr.io/cloud-spanner-emulator/emulator".to_owned()
     }
 
-    fn wait_until_ready<D: Docker>(&self, container: &testcontainers::Container<'_, D, Self>) {
-        container
-            .logs()
-            .stderr
-            .wait_for_message("gRPC server listening")
-            .unwrap()
+    fn tag(&self) -> String {
+        "latest".to_owned()
     }
 
-    fn args(&self) -> Self::Args {
-        Vec::new()
-    }
-
-    fn env_vars(&self) -> Self::EnvVars {
-        HashMap::new()
-    }
-
-    fn volumes(&self) -> Self::Volumes {
-        HashMap::new()
-    }
-
-    fn with_args(self, _arguments: Self::Args) -> Self {
-        self
-    }
-
-    fn with_entrypoint(self, _entryppoint: &Self::EntryPoint) -> Self {
-        self
-    }
-
-    fn entrypoint(&self) -> Option<String> {
-        None
+    fn ready_conditions(&self) -> Vec<WaitFor> {
+        vec![WaitFor::message_on_stderr("gRPC server listening")]
     }
 }
 
-#[async_trait]
-pub trait SpannerContainer {
-    fn http_port(&self) -> u16;
+struct SpannerContainer<'a> {
+    container: Container<'a, SpannerEmulator>,
+}
 
-    fn grpc_port(&self) -> u16;
+impl<'a> SpannerContainer<'a> {
+    fn http_port(&self) -> u16 {
+        self.container.get_host_port(9020)
+    }
+
+    fn grpc_port(&self) -> u16 {
+        self.container.get_host_port(9010)
+    }
 
     async fn post(&self, path: String, body: String) {
         let response = reqwest::Client::new()
@@ -70,16 +46,15 @@ pub trait SpannerContainer {
         assert!(response.status().is_success(), "{:?}", response);
     }
 
-    async fn with_instance(&self, instance: &InstanceId) -> &Self {
+    async fn with_instance(&'a self, instance: &InstanceId) {
         self.post(
             instance.resources_path(),
             format!(r#"{{"instanceId": "{}"}}"#, instance.name()),
         )
         .await;
-        self
     }
 
-    async fn with_database(&self, database: &DatabaseId, extra_statements: Vec<&str>) -> &Self {
+    async fn with_database(&self, database: &DatabaseId, extra_statements: Vec<&str>) {
         let json_statements = extra_statements
             .into_iter()
             .map(|s| format!(r#""{}""#, s))
@@ -95,23 +70,13 @@ pub trait SpannerContainer {
             ),
         )
         .await;
-        self
-    }
-}
-
-impl<'a, D: Docker> SpannerContainer for Container<'a, D, SpannerEmulator> {
-    fn http_port(&self) -> u16 {
-        self.get_host_port(9020).unwrap()
-    }
-    fn grpc_port(&self) -> u16 {
-        self.get_host_port(9010).unwrap()
     }
 }
 
 // Holds on to Container so it is dropped with Client.
 // This is necessary to keep the container running for the duration of the test.
 pub(crate) struct ClientFixture<'a> {
-    _container: Container<'a, clients::Cli, SpannerEmulator>,
+    _container: SpannerContainer<'a>,
     client: Client,
 }
 
@@ -141,10 +106,9 @@ pub(crate) async fn new_client<'a>() -> Result<ClientFixture<'a>, Error> {
     let instance_id = InstanceId::new(ProjectId::new("test-project"), "test-instance");
     let database_id = DatabaseId::new(instance_id.clone(), "test-database");
     let container = DOCKER.run(SpannerEmulator);
-    container
-        .with_instance(&instance_id)
-        .await
-        .with_database(
+    let container = SpannerContainer { container };
+    container.with_instance(&instance_id).await;
+    container.with_database(
             &database_id,
             vec![
                 "CREATE TABLE my_table(a INT64, b STRING(MAX)) PRIMARY KEY(a)",
