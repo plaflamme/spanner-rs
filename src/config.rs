@@ -92,8 +92,8 @@ impl Config {
             None
         } else {
             match self.credentials_file {
-                Some(file) => Some(gcp_auth::from_credentials_file(file).await?),
-                None => Some(gcp_auth::init().await?),
+                Some(file) => Some(gcp_auth::CustomServiceAccount::from_file(file)?.into()),
+                None => Some(gcp_auth::AuthenticationManager::new().await?),
             }
         };
 
