@@ -1,5 +1,4 @@
 use bb8::ManageConnection;
-use bb8::PooledConnection;
 use tokio::sync::Mutex;
 
 use crate::Connection;
@@ -40,7 +39,7 @@ impl ManageConnection for SessionManager {
         self.connection.lock().await.create_session().await
     }
 
-    async fn is_valid(&self, _conn: &mut PooledConnection<'_, Self>) -> Result<(), Self::Error> {
+    async fn is_valid(&self, _conn: &mut Self::Connection) -> Result<(), Self::Error> {
         Ok(())
     }
 
