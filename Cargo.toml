@@ -27,7 +27,7 @@ gcp_auth = "0.7"
 google-api-proto = { version = "1", features = ["google-spanner-v1"] }
 http = "0.2"
 prost = "0.9"
-prost-types = "0.9"
+prost-types = "0.10"
 serde_json = { version = "1.0", optional = true }
 thiserror = "1.0"
 tokio = { version = "1.18", features = ["rt-multi-thread", "macros", "net"] }
