@@ -594,13 +594,13 @@ dependencies = [
 
 [[package]]
 name = "google-api-proto"
-version = "1.57.0"
+version = "1.79.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "637c721ba33f2edcad788bb63488cca0cc32647aa647b45f558039806a29c3be"
+checksum = "bc8d6b303a0d343fe3cf648869bfc3d2a7db3348ab855ca6333af92112569086"
 dependencies = [
- "prost 0.9.0",
- "prost-types 0.9.0",
- "tonic 0.6.2",
+ "prost",
+ "prost-types",
+ "tonic",
 ]
 
 [[package]]
@@ -1104,35 +1104,12 @@ dependencies = [
 
 [[package]]
 name = "prost"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "444879275cb4fd84958b1a1d5420d15e6fcf7c235fe47f053c9c2a80aceb6001"
-dependencies = [
- "bytes",
- "prost-derive 0.9.0",
-]
-
-[[package]]
-name = "prost"
 version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bc03e116981ff7d8da8e5c220e374587b98d294af7ba7dd7fda761158f00086f"
 dependencies = [
  "bytes",
- "prost-derive 0.10.1",
-]
-
-[[package]]
-name = "prost-derive"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9cc1a3263e07e0bf68e96268f37665207b49560d98739662cdfaae215c720fe"
-dependencies = [
- "anyhow",
- "itertools",
- "proc-macro2",
- "quote",
- "syn",
+ "prost-derive",
 ]
 
 [[package]]
@@ -1150,25 +1127,12 @@ dependencies = [
 
 [[package]]
 name = "prost-types"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "534b7a0e836e3c482d2693070f982e39e7611da9695d4d1f5a4b186b51faef0a"
-dependencies = [
- "bytes",
- "prost 0.9.0",
-<<<<<<< HEAD
-]
-
-[[package]]
-name = "prost-types"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2d0a014229361011dc8e69c8a1ec6c2e8d0f2af7c91e3ea3f5b2170298461e68"
 dependencies = [
  "bytes",
- "prost 0.10.3",
-=======
->>>>>>> origin/dependabot/cargo/master/tonic-0.7.2
+ "prost",
 ]
 
 [[package]]
@@ -1535,19 +1499,14 @@ dependencies = [
  "gcp_auth",
  "google-api-proto",
  "http",
-<<<<<<< HEAD
- "prost 0.10.3",
- "prost-types 0.10.1",
-=======
- "prost 0.9.0",
+ "prost",
  "prost-types",
->>>>>>> origin/dependabot/cargo/master/tonic-0.7.2
  "reqwest",
  "serde_json",
  "testcontainers",
  "thiserror",
  "tokio",
- "tonic 0.7.2",
+ "tonic",
  "tower",
 ]
 
@@ -1783,41 +1742,6 @@ dependencies = [
 
 [[package]]
 name = "tonic"
-version = "0.6.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff08f4649d10a70ffa3522ca559031285d8e421d727ac85c60825761818f5d0a"
-dependencies = [
- "async-stream",
- "async-trait",
- "base64",
- "bytes",
- "futures-core",
- "futures-util",
- "h2",
- "http",
- "http-body",
- "hyper",
- "hyper-timeout",
- "percent-encoding",
- "pin-project",
- "prost 0.9.0",
- "prost-derive 0.9.0",
-<<<<<<< HEAD
- "rustls-native-certs 0.5.0",
-=======
->>>>>>> origin/dependabot/cargo/master/tonic-0.7.2
- "tokio",
- "tokio-stream",
- "tokio-util 0.6.8",
- "tower",
- "tower-layer",
- "tower-service",
- "tracing",
- "tracing-futures",
-]
-
-[[package]]
-name = "tonic"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5be9d60db39854b30b835107500cf0aca0b0d14d6e1c3de124217c23a29c2ddb"
@@ -1836,8 +1760,8 @@ dependencies = [
  "hyper-timeout",
  "percent-encoding",
  "pin-project",
- "prost 0.10.3",
- "prost-derive 0.10.1",
+ "prost",
+ "prost-derive",
  "rustls-native-certs",
  "rustls-pemfile 1.0.0",
  "tokio",
