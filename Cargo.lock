@@ -556,7 +556,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "637c721ba33f2edcad788bb63488cca0cc32647aa647b45f558039806a29c3be"
 dependencies = [
  "prost 0.9.0",
- "prost-types",
+ "prost-types 0.9.0",
  "tonic",
 ]
 
@@ -1104,6 +1104,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "prost-types"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2d0a014229361011dc8e69c8a1ec6c2e8d0f2af7c91e3ea3f5b2170298461e68"
+dependencies = [
+ "bytes",
+ "prost 0.10.3",
+]
+
+[[package]]
 name = "quote"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1503,7 +1513,7 @@ dependencies = [
  "google-api-proto",
  "http",
  "prost 0.10.3",
- "prost-types",
+ "prost-types 0.10.1",
  "reqwest",
  "serde_json",
  "testcontainers",
