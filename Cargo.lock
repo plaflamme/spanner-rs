@@ -594,9 +594,9 @@ dependencies = [
 
 [[package]]
 name = "google-api-proto"
-version = "1.89.0"
+version = "1.96.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9757d3de74dc4b2153f510839ba3524e255ba3de53e43a2e6bbb4d4da31fab3a"
+checksum = "5d7adde78a343a354b3c18603d2cdcafa27135f66a4b0232780344a864c65e06"
 dependencies = [
  "prost",
  "prost-types",
