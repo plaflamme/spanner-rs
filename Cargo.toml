@@ -39,7 +39,7 @@ async-trait = "0.1"
 ctor = "0.1"
 dotenv = "0.15"
 env_logger = "0.9.0"
-testcontainers = "0.13"
+testcontainers = "0.14"
 reqwest = "0.11"
 
 [package.metadata.release]
