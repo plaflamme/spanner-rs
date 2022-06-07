@@ -28,11 +28,11 @@ struct SpannerContainer<'a> {
 
 impl<'a> SpannerContainer<'a> {
     fn http_port(&self) -> u16 {
-        self.container.get_host_port(9020)
+        self.container.get_host_port_ipv4(9020)
     }
 
     fn grpc_port(&self) -> u16 {
-        self.container.get_host_port(9010)
+        self.container.get_host_port_ipv4(9010)
     }
 
     async fn post(&self, path: String, body: String) {
