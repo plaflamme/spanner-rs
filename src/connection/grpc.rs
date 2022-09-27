@@ -126,7 +126,7 @@ impl Connection for GrpcConnection {
         self.spanner
             .execute_sql(Request::new(ExecuteSqlRequest {
                 session: session.name().to_string(),
-                transaction: Some(selector.clone().into()),
+                transaction: Some(selector.clone().try_into()?),
                 sql: statement.to_string(),
                 params: Some(prost_types::Struct { fields: params }),
                 param_types,
@@ -158,7 +158,7 @@ impl Connection for GrpcConnection {
             .spanner
             .execute_batch_dml(Request::new(ExecuteBatchDmlRequest {
                 session: session.name().to_string(),
-                transaction: Some(selector.clone().into()),
+                transaction: Some(selector.clone().try_into()?),
                 statements,
                 seqno,
                 request_options: None,

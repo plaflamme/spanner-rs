@@ -39,30 +39,38 @@ pub enum TimestampBound {
     MaxStaleness(Duration),
 }
 
-impl From<TimestampBound> for proto::transaction_options::read_only::TimestampBound {
-    fn from(value: TimestampBound) -> Self {
+impl TryFrom<TimestampBound> for proto::transaction_options::read_only::TimestampBound {
+    type Error = super::Error;
+
+    fn try_from(value: TimestampBound) -> Result<Self, Self::Error> {
         match value {
             TimestampBound::Strong => {
-                proto::transaction_options::read_only::TimestampBound::Strong(true)
+                Ok(proto::transaction_options::read_only::TimestampBound::Strong(true))
             }
-            TimestampBound::ReadTimestamp(timestamp) => {
+            TimestampBound::ReadTimestamp(timestamp) => Ok(
                 proto::transaction_options::read_only::TimestampBound::ReadTimestamp(
                     timestamp.into(),
-                )
-            }
-            TimestampBound::MinReadTimestamp(timestamp) => {
+                ),
+            ),
+            TimestampBound::MinReadTimestamp(timestamp) => Ok(
                 proto::transaction_options::read_only::TimestampBound::MinReadTimestamp(
                     timestamp.into(),
-                )
-            }
-            TimestampBound::MaxStaleness(duration) => {
-                proto::transaction_options::read_only::TimestampBound::MaxStaleness(duration.into())
-            }
-            TimestampBound::ExactStaleness(duration) => {
+                ),
+            ),
+            TimestampBound::MaxStaleness(duration) => Ok(
+                proto::transaction_options::read_only::TimestampBound::MaxStaleness(
+                    duration
+                        .try_into()
+                        .map_err(|_| super::Error::Client(format!("invalid bound {duration:?}")))?,
+                ),
+            ),
+            TimestampBound::ExactStaleness(duration) => Ok(
                 proto::transaction_options::read_only::TimestampBound::ExactStaleness(
-                    duration.into(),
-                )
-            }
+                    duration
+                        .try_into()
+                        .map_err(|_| super::Error::Client(format!("invalid bound {duration:?}")))?,
+                ),
+            ),
         }
     }
 }
@@ -74,25 +82,29 @@ pub(crate) enum TransactionSelector {
     Begin,
 }
 
-impl From<TransactionSelector> for proto::TransactionSelector {
-    fn from(value: TransactionSelector) -> Self {
+impl TryFrom<TransactionSelector> for proto::TransactionSelector {
+    type Error = super::Error;
+    fn try_from(value: TransactionSelector) -> Result<Self, Self::Error> {
         match value {
-            TransactionSelector::SingleUse(bound) => proto::TransactionSelector {
+            TransactionSelector::SingleUse(bound) => Ok(proto::TransactionSelector {
                 selector: Some(proto::transaction_selector::Selector::SingleUse(
                     proto::TransactionOptions {
                         mode: Some(proto::transaction_options::Mode::ReadOnly(
                             proto::transaction_options::ReadOnly {
                                 return_read_timestamp: false,
-                                timestamp_bound: bound.map(Into::into),
+                                timestamp_bound: match bound {
+                                    Some(bound) => Some(bound.try_into()?),
+                                    None => None,
+                                },
                             },
                         )),
                     },
                 )),
-            },
-            TransactionSelector::Id(tx) => proto::TransactionSelector {
+            }),
+            TransactionSelector::Id(tx) => Ok(proto::TransactionSelector {
                 selector: Some(proto::transaction_selector::Selector::Id(tx.spanner_tx.id)),
-            },
-            TransactionSelector::Begin => proto::TransactionSelector {
+            }),
+            TransactionSelector::Begin => Ok(proto::TransactionSelector {
                 selector: Some(proto::transaction_selector::Selector::Begin(
                     proto::TransactionOptions {
                         mode: Some(proto::transaction_options::Mode::ReadWrite(
@@ -100,7 +112,7 @@ impl From<TransactionSelector> for proto::TransactionSelector {
                         )),
                     },
                 )),
-            },
+            }),
         }
     }
 }
