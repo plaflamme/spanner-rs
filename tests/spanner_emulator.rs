@@ -18,7 +18,13 @@ impl Image for SpannerEmulator {
     }
 
     fn ready_conditions(&self) -> Vec<WaitFor> {
-        vec![WaitFor::message_on_stderr("gRPC server listening")]
+        vec![
+            WaitFor::message_on_stderr("gRPC server listening"),
+            // TODO: this is necessary when using colima which polls for ports to open on the host every few seconds
+            WaitFor::Duration {
+                length: std::time::Duration::from_secs(3),
+            },
+        ]
     }
 }
 
