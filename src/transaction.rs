@@ -108,7 +108,9 @@ impl TryFrom<TransactionSelector> for proto::TransactionSelector {
                 selector: Some(proto::transaction_selector::Selector::Begin(
                     proto::TransactionOptions {
                         mode: Some(proto::transaction_options::Mode::ReadWrite(
-                            proto::transaction_options::ReadWrite {},
+                            proto::transaction_options::ReadWrite {
+                                read_lock_mode: proto::transaction_options::read_write::ReadLockMode::Unspecified.into(),
+                            },
                         )),
                     },
                 )),
