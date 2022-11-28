@@ -38,7 +38,7 @@ tower = { version = "0.4", features = ["filter"] }
 async-trait = "0.1"
 ctor = "0.1"
 dotenv = "0.15"
-env_logger = "0.9.1"
+env_logger = "0.10.0"
 testcontainers = "0.14"
 reqwest = "0.11"
 
